@@ -12,16 +12,16 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import com.projectbrain.support.PostgresTestBase;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.yaml.snakeyaml.Yaml;
 
 @SpringBootTest
-@Disabled("Enabled in Task 8")
+@TestPropertySource(properties = { "SUPABASE_URL=http://127.0.0.1:1", "APP_CORS_ALLOWED_ORIGINS=http://localhost:5173" })
 class ContractRoutesTest extends PostgresTestBase {
 
 	private static final String BASE_PATH = "/api/v1";
