@@ -329,7 +329,7 @@ it("signs out after a second 401");
 
 - [ ] **Step 1:** Write failing tests: `sends a user with no organization to onboarding`, `shows a slug conflict on the form`, `shows not found for an inaccessible organization`.
 - [ ] **Step 2:** Run `npm test`. Expected: FAIL.
-- [ ] **Step 3:** Implement the shell and onboarding. Use the `frontend-design` skill once here to set the visual direction.
+- [ ] **Step 3:** Run `npm install @fontsource-variable/inter @fontsource-variable/jetbrains-mono`, copy the tokens from `docs/design/brand-theme.md` into `src/index.css`, and implement the shell and onboarding following that file's readability rules. Use the `frontend-design` skill once here for layout, keeping the brand theme as fixed.
 - [ ] **Step 4:** Run `npm test && npm run build`. Expected: PASS.
 - [ ] **Step 5:** Commit.
 
