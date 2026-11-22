@@ -2,6 +2,7 @@
 
 Status: Direction approved by the developer on 2026-11-22. Detailed design and plan are written before Phase 1.5 starts.
 Applies to: Phase 1.5 onward
+Related: `2026-11-22-agent-training-evaluation-design.md`
 
 ## 1. Intent
 
