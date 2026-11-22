@@ -8,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -40,6 +41,11 @@ public class ProblemHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(ConflictException.class)
 	ResponseEntity<Object> conflict(ConflictException ex) {
 		return problem(409, ex.getMessage());
+	}
+
+	@ExceptionHandler(OptimisticLockingFailureException.class)
+	ResponseEntity<Object> optimisticLock(OptimisticLockingFailureException ex) {
+		return problem(409, "The resource was changed by someone else. Reload and try again.");
 	}
 
 	@ExceptionHandler(UnprocessableException.class)

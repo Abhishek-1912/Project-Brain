@@ -5,8 +5,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -31,8 +33,21 @@ class ProblemHandlerTest {
 			.andExpect(jsonPath("$.detail").value("detail for " + kind));
 	}
 
+	@Test
+	void mapsOptimisticLockFailureToConflict() throws Exception {
+		mvc.perform(get("/throw-optimistic-lock"))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.status").value(409));
+	}
+
 	@RestController
 	static class ThrowingController {
+
+		@GetMapping("/throw-optimistic-lock")
+		void raiseOptimisticLock() {
+			throw new OptimisticLockingFailureException("row changed");
+		}
 
 		@GetMapping("/throw/{kind}")
 		void raise(@PathVariable String kind) {
