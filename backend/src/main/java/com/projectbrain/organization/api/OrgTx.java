@@ -58,6 +58,20 @@ public class OrgTx {
 		});
 	}
 
+	/** Must run inside inOrg for the same organization, because row-level security limits what it can see. */
+	public boolean isMember(UUID orgId, UUID userId) {
+		return jdbc.sql("""
+				SELECT EXISTS (
+				    SELECT 1 FROM brain.organization_members
+				    WHERE organization_id = :orgId AND user_id = :userId
+				)
+				""")
+			.param("orgId", orgId)
+			.param("userId", userId)
+			.query(Boolean.class)
+			.single();
+	}
+
 	private void setContext(UUID userId, String orgId) {
 		jdbc.sql("SELECT set_config('app.current_user_id', :userId, true), set_config('app.current_org_id', :orgId, true)")
 			.param("userId", userId.toString())
