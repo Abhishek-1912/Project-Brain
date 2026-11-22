@@ -8,11 +8,11 @@ import { RequireAuth } from './auth/RequireAuth'
 import { ResetPasswordPage } from './auth/ResetPasswordPage'
 import { SignUpPage } from './auth/SignUpPage'
 import { AppLayout } from './components/AppLayout'
-import { EmptyState } from './components/EmptyState'
 import { ErrorState } from './components/ErrorState'
 import { LoadingState } from './components/LoadingState'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
+import { ProjectListPage } from './features/projects/ProjectListPage'
 
 function createQueryClient() {
   return new QueryClient({
@@ -66,15 +66,6 @@ function OrganizationIndex() {
   return <Navigate to={data[0] ? `/orgs/${data[0].id}` : '/orgs/new'} replace />
 }
 
-function OrganizationHome() {
-  return (
-    <EmptyState
-      title="No project screens yet"
-      description="Project lists and tasks will open here once they’re added."
-    />
-  )
-}
-
 function PageNotFound() {
   return (
     <ErrorState
@@ -101,7 +92,7 @@ export function AppRoutes() {
         <Route index element={<OrganizationIndex />} />
         <Route path="orgs/new" element={<CreateOrganizationPage />} />
         <Route path="orgs/:orgId" element={<AppLayout />}>
-          <Route index element={<OrganizationHome />} />
+          <Route index element={<ProjectListPage />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />
       </Route>
