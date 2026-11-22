@@ -1,9 +1,10 @@
-import { Link, Outlet, useParams } from 'react-router-dom'
+import { Link, Outlet, useLocation, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
 import {
   CurrentOrgContext,
+  useCurrentOrg,
   useOrganization,
   type Role,
 } from '../features/organizations/useOrganizations'
@@ -15,6 +16,38 @@ const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Admin',
   MEMBER: 'Member',
   VIEWER: 'Viewer',
+}
+
+function OrganizationNav() {
+  const { org, can } = useCurrentOrg()
+  const { pathname } = useLocation()
+  const auditPath = `/orgs/${org.id}/audit`
+  const onAudit = pathname === auditPath
+  const itemClass = (active: boolean) =>
+    `rounded-md px-2 py-1.5 text-sm ${
+      active ? 'bg-primary-dim font-medium text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary'
+    }`
+
+  return (
+    <nav aria-label="Main" className="flex flex-row gap-1 md:flex-col">
+      <Link
+        to={`/orgs/${org.id}`}
+        aria-current={onAudit ? undefined : 'page'}
+        className={itemClass(!onAudit)}
+      >
+        Projects
+      </Link>
+      {can('VIEW_AUDIT') && (
+        <Link
+          to={auditPath}
+          aria-current={onAudit ? 'page' : undefined}
+          className={itemClass(onAudit)}
+        >
+          Audit log
+        </Link>
+      )}
+    </nav>
+  )
 }
 
 export function AppLayout() {
@@ -59,6 +92,7 @@ export function AppLayout() {
         <aside className="flex flex-col gap-5 border-b border-border bg-surface-low p-4 md:sticky md:top-0 md:h-svh md:border-r md:border-b-0">
           <p className="text-sm font-semibold text-primary">Project Brain</p>
           <OrganizationSwitcher />
+          <OrganizationNav />
           <Link to="/orgs/new" className="text-sm">
             Create organization
           </Link>

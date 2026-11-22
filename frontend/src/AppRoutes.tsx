@@ -10,6 +10,7 @@ import { SignUpPage } from './auth/SignUpPage'
 import { AppLayout } from './components/AppLayout'
 import { ErrorState } from './components/ErrorState'
 import { LoadingState } from './components/LoadingState'
+import { AuditLogPage } from './features/audit/AuditLogPage'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
 import { ProjectListPage } from './features/projects/ProjectListPage'
@@ -95,6 +96,7 @@ export function AppRoutes() {
         <Route path="orgs/:orgId" element={<AppLayout />}>
           <Route index element={<ProjectListPage />} />
           <Route path="projects/:projectId" element={<TaskListPage />} />
+          <Route path="audit" element={<AuditLogPage />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />
       </Route>

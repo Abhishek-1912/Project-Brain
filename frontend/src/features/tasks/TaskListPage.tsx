@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { EmptyState } from '../../components/EmptyState'
+import { InlineAlert } from '../../components/InlineAlert'
 import { LoadingState } from '../../components/LoadingState'
 import { useCurrentOrg } from '../organizations/useOrganizations'
 import { useProject } from '../projects/useProjects'
@@ -45,24 +46,6 @@ function withPage(params: URLSearchParams, page: number) {
   if (page > 0) next.set('page', String(page + 1))
   else next.delete('page')
   return next
-}
-
-function InlineAlert({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: ReactNode
-}) {
-  return (
-    <section role="alert" className="max-w-prose border-l-2 border-error py-1 pl-5">
-      <h2 className="text-base font-semibold text-text-primary">{title}</h2>
-      <p className="mt-1 text-sm leading-6">{description}</p>
-      <div className="mt-4 text-sm">{children}</div>
-    </section>
-  )
 }
 
 // Keyed so filters' cached rows and open panels never carry into another project.

@@ -269,6 +269,34 @@ describe('organization routes', () => {
     ).toBeInTheDocument()
   })
 
+  it('shows audit navigation to an admin', async () => {
+    const admin = { ...acme, role: 'ADMIN' }
+    serve({
+      'GET /organizations': page([admin]),
+      [`GET /organizations/${ORG_A}`]: () => json(200, admin),
+    })
+
+    renderAt(`/orgs/${ORG_A}`)
+
+    expect(await screen.findByRole('link', { name: 'Audit log' })).toHaveAttribute(
+      'href',
+      `/orgs/${ORG_A}/audit`,
+    )
+  })
+
+  it('hides audit navigation from a member', async () => {
+    const memberOrg = { ...acme, role: 'MEMBER' }
+    serve({
+      'GET /organizations': page([memberOrg]),
+      [`GET /organizations/${ORG_A}`]: () => json(200, memberOrg),
+    })
+
+    renderAt(`/orgs/${ORG_A}`)
+
+    expect(await screen.findByRole('link', { name: 'Projects' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Audit log' })).toBeNull()
+  })
+
   it('switches organizations from the sidebar', async () => {
     serve({
       'GET /organizations': page([acme, globex]),
