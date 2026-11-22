@@ -1,0 +1,133 @@
+{
+  "info": {
+    "name": "Project Brain Phase 1",
+    "description": "Run in order. Set accessToken to a Supabase access token. Each run creates a new organization, because the API has no organization delete.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "orgId", "value": "" },
+    { "key": "projectId", "value": "" },
+    { "key": "taskId", "value": "" },
+    { "key": "taskVersion", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Get current user",
+      "event": [{
+        "listen": "test",
+        "script": { "type": "text/javascript", "exec": [
+          "pm.test('returns 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('has identity', () => { pm.expect(body.id).to.be.a('string'); pm.expect(body.email).to.include('@'); });",
+          "pm.collectionVariables.set('userId', body.id);"
+        ] }
+      }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/me" }
+    },
+    {
+      "name": "Create organization",
+      "event": [{
+        "listen": "test",
+        "script": { "type": "text/javascript", "exec": [
+          "pm.test('returns 201', () => pm.response.to.have.status(201));",
+          "const body = pm.response.json();",
+          "pm.test('caller is owner', () => pm.expect(body.role).to.eql('OWNER'));",
+          "pm.collectionVariables.set('orgId', body.id);"
+        ] }
+      }],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/organizations",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"name\":\"Postman Org\",\"slug\":\"postman-{{$timestamp}}\"}" }
+      }
+    },
+    {
+      "name": "Create project",
+      "event": [{
+        "listen": "test",
+        "script": { "type": "text/javascript", "exec": [
+          "pm.test('returns 201', () => pm.response.to.have.status(201));",
+          "const body = pm.response.json();",
+          "pm.test('project is active', () => pm.expect(body.status).to.eql('ACTIVE'));",
+          "pm.collectionVariables.set('projectId', body.id);"
+        ] }
+      }],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/organizations/{{orgId}}/projects",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"name\":\"Postman Project\",\"description\":\"Created by the Phase 1 collection\"}" }
+      }
+    },
+    {
+      "name": "Create task",
+      "event": [{
+        "listen": "test",
+        "script": { "type": "text/javascript", "exec": [
+          "pm.test('returns 201', () => pm.response.to.have.status(201));",
+          "const body = pm.response.json();",
+          "pm.test('uses default status', () => pm.expect(body.status).to.eql('BACKLOG'));",
+          "pm.test('assigned to caller', () => pm.expect(body.assigneeId).to.eql(pm.collectionVariables.get('userId')));",
+          "pm.collectionVariables.set('taskId', body.id);",
+          "pm.collectionVariables.set('taskVersion', body.version);"
+        ] }
+      }],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/organizations/{{orgId}}/projects/{{projectId}}/tasks",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"title\":\"Postman Task\",\"assigneeId\":\"{{userId}}\"}" }
+      }
+    },
+    {
+      "name": "Update task",
+      "event": [{
+        "listen": "test",
+        "script": { "type": "text/javascript", "exec": [
+          "pm.test('returns 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('status changed', () => pm.expect(body.status).to.eql('IN_PROGRESS'));",
+          "pm.test('assignee kept', () => pm.expect(body.assigneeId).to.eql(pm.collectionVariables.get('userId')));",
+          "pm.test('version increased', () => pm.expect(body.version).to.eql(Number(pm.collectionVariables.get('taskVersion')) + 1));"
+        ] }
+      }],
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/organizations/{{orgId}}/tasks/{{taskId}}",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"status\":\"IN_PROGRESS\",\"version\":{{taskVersion}}}" }
+      }
+    },
+    {
+      "name": "Delete task",
+      "event": [{
+        "listen": "test",
+        "script": { "type": "text/javascript", "exec": [
+          "pm.test('returns 204', () => pm.response.to.have.status(204));"
+        ] }
+      }],
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/organizations/{{orgId}}/tasks/{{taskId}}" }
+    },
+    {
+      "name": "Read audit events",
+      "event": [{
+        "listen": "test",
+        "script": { "type": "text/javascript", "exec": [
+          "pm.test('returns 200', () => pm.response.to.have.status(200));",
+          "const actions = pm.response.json().items.map((event) => event.action);",
+          "pm.test('records the run', () => pm.expect(actions).to.include.members(['ORGANIZATION_CREATED', 'PROJECT_CREATED', 'TASK_DELETED']));",
+          "pm.test('newest first', () => pm.expect(actions[0]).to.eql('TASK_DELETED'));"
+        ] }
+      }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/organizations/{{orgId}}/audit-events" }
+    }
+  ]
+}
