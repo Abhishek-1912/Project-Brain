@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '../../api/schema'
 import { CurrentOrgContext } from '../organizations/useOrganizations'
@@ -88,7 +89,9 @@ function renderPage(role: Role = 'OWNER') {
   render(
     <QueryClientProvider client={client}>
       <CurrentOrgContext.Provider value={org}>
-        <ProjectListPage />
+        <MemoryRouter>
+          <ProjectListPage />
+        </MemoryRouter>
       </CurrentOrgContext.Provider>
     </QueryClientProvider>,
   )
@@ -119,6 +122,17 @@ describe('ProjectListPage', () => {
     expect(screen.queryByRole('button', { name: 'Create project' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit Alpha' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Archive Alpha' })).toBeNull()
+  })
+
+  it('links each project to its tasks', async () => {
+    serve({ [LIST]: () => page([project(ALPHA, 'Alpha')]) })
+
+    renderPage('VIEWER')
+
+    expect(await screen.findByRole('link', { name: 'Alpha' })).toHaveAttribute(
+      'href',
+      `/orgs/${ORG}/projects/${ALPHA}`,
+    )
   })
 
   it('tells a member who can create the first project', async () => {
@@ -335,7 +349,9 @@ describe('ProjectListPage', () => {
     const tree = (id: string) => (
       <QueryClientProvider client={client}>
         <CurrentOrgContext.Provider value={organization(id)}>
-          <ProjectListPage />
+          <MemoryRouter>
+            <ProjectListPage />
+          </MemoryRouter>
         </CurrentOrgContext.Provider>
       </QueryClientProvider>
     )

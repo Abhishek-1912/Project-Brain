@@ -13,6 +13,7 @@ import { LoadingState } from './components/LoadingState'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
 import { ProjectListPage } from './features/projects/ProjectListPage'
+import { TaskListPage } from './features/tasks/TaskListPage'
 
 function createQueryClient() {
   return new QueryClient({
@@ -93,6 +94,7 @@ export function AppRoutes() {
         <Route path="orgs/new" element={<CreateOrganizationPage />} />
         <Route path="orgs/:orgId" element={<AppLayout />}>
           <Route index element={<ProjectListPage />} />
+          <Route path="projects/:projectId" element={<TaskListPage />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />
       </Route>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
@@ -168,7 +169,12 @@ function OrganizationProjects() {
               {data.items.map((project) => (
                 <tr key={project.id} className="border-b border-hairline last:border-b-0">
                   <td className="max-w-md px-4 py-3 align-top">
-                    <p className="font-medium break-words text-text-primary">{project.name}</p>
+                    <Link
+                      to={`/orgs/${org.id}/projects/${project.id}`}
+                      className="font-medium break-words text-text-primary"
+                    >
+                      {project.name}
+                    </Link>
                     {project.description && (
                       <p className="mt-0.5 line-clamp-2 text-text-meta">{project.description}</p>
                     )}

@@ -13,10 +13,25 @@ export type ProjectPatch = components['schemas']['ProjectPatch']
 
 const PAGE_SIZE = 20
 
-const projectKeys = {
+export const projectKeys = {
   all: (orgId: string) => ['projects', orgId] as const,
   list: (orgId: string, page: number) =>
     ['projects', orgId, 'list', page] as const,
+  detail: (orgId: string, projectId: string) =>
+    ['projects', orgId, 'detail', projectId] as const,
+}
+
+export function useProject(orgId: string, projectId: string) {
+  return useQuery({
+    queryKey: projectKeys.detail(orgId, projectId),
+    queryFn: async () => {
+      const { data } = await api.GET(
+        '/organizations/{orgId}/projects/{projectId}',
+        { params: { path: { orgId, projectId } } },
+      )
+      return data!
+    },
+  })
 }
 
 export function useProjects(orgId: string, page: number) {
