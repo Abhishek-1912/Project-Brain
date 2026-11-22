@@ -1,5 +1,6 @@
 package com.projectbrain.support;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -9,7 +10,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.Container;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.MountableFile;
 
 /** Shared PostgreSQL with real roles: Flyway runs as brain_migrator, the app as brain_app. */
 public abstract class PostgresTestBase {
@@ -20,7 +20,8 @@ public abstract class PostgresTestBase {
 	private static final String MIGRATOR_PASSWORD = "test_migrator_password";
 
 	private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine")
-		.withCopyFileToContainer(MountableFile.forHostPath("db/bootstrap/create_roles.sql"), "/tmp/create_roles.sql");
+		.withCopyFileToContainer(RoleBootstrapScript.mountable(Path.of("db/bootstrap/create_roles.sql")),
+				"/tmp/create_roles.sql");
 
 	static {
 		POSTGRES.start();
