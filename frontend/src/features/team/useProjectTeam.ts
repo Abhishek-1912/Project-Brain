@@ -3,6 +3,7 @@ import { api } from '../../api/client'
 import type { components } from '../../api/schema'
 
 export type JobRole = components['schemas']['JobRole']
+export type JobRolePatch = components['schemas']['JobRolePatch']
 export type ProjectTeam = components['schemas']['ProjectTeam']
 export type ProjectTeamMember = components['schemas']['ProjectTeamMember']
 export type ProjectTeamJobRole = components['schemas']['ProjectTeamJobRole']
@@ -21,15 +22,54 @@ export function useJobRoles(orgId: string) {
   })
 }
 
-export function useProjectTeam(orgId: string, projectId: string) {
+export function useProjectTeam(orgId: string, projectId: string, enabled = true) {
   return useQuery({
     queryKey: teamKey(orgId, projectId),
+    enabled,
     queryFn: async () => {
       const { data } = await api.GET('/organizations/{orgId}/projects/{projectId}/team', {
         params: { path: { orgId, projectId } },
       })
       return data!
     },
+  })
+}
+
+function useRefreshJobRoles(orgId: string) {
+  const queryClient = useQueryClient()
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['job-roles', orgId] }),
+      queryClient.invalidateQueries({ queryKey: ['project-team', orgId] }),
+      queryClient.invalidateQueries({ queryKey: ['reviews', orgId] }),
+    ])
+}
+
+export function useCreateJobRole(orgId: string) {
+  const onSuccess = useRefreshJobRoles(orgId)
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data } = await api.POST('/organizations/{orgId}/job-roles', {
+        params: { path: { orgId } },
+        body: { name },
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useUpdateJobRole(orgId: string) {
+  const onSettled = useRefreshJobRoles(orgId)
+  return useMutation({
+    mutationFn: async ({ jobRoleId, body }: { jobRoleId: string; body: JobRolePatch }) => {
+      const { data } = await api.PATCH('/organizations/{orgId}/job-roles/{jobRoleId}', {
+        params: { path: { orgId, jobRoleId } },
+        body,
+      })
+      return data!
+    },
+    onSettled,
   })
 }
 

@@ -13,18 +13,21 @@ import {
 
 const primaryButton =
   'rounded-md bg-primary px-4 py-2.5 text-center font-medium text-on-primary hover:bg-primary-hover hover:no-underline disabled:opacity-60'
+const quietButton = 'text-sm text-text-secondary hover:text-text-primary'
 
 export function InviteAcceptPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, loading, signOut } = useAuth()
-  const [token, setToken] = useState(() => {
+  const [token] = useState(() => {
     const fromLink = tokenFromHash(location.hash)
     if (fromLink) savePendingInvite(fromLink)
     return fromLink ?? readPendingInvite()
   })
   const [accepting, setAccepting] = useState(false)
+  const [rejectedFor, setRejectedFor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const rejected = Boolean(user && rejectedFor === user.id)
 
   // Removes the token from the address bar and browser history entry.
   useEffect(() => {
@@ -36,8 +39,13 @@ export function InviteAcceptPage() {
     }
   }, [location, navigate])
 
+  // Signing out from this page means switching accounts, so the invite stays available.
+  useEffect(() => {
+    if (token && !user && !loading) savePendingInvite(token)
+  }, [token, user, loading])
+
   async function accept() {
-    if (!token) return
+    if (!token || !user) return
     setError(null)
     setAccepting(true)
     try {
@@ -47,12 +55,16 @@ export function InviteAcceptPage() {
     } catch (caught) {
       setAccepting(false)
       if (caught instanceof ApiError && caught.status === 404) {
-        clearPendingInvite()
-        setToken(null)
+        setRejectedFor(user.id)
       } else {
         setError('The invite wasn’t accepted. Check your connection and try again.')
       }
     }
+  }
+
+  function leave() {
+    clearPendingInvite()
+    navigate('/', { replace: true })
   }
 
   if (loading) return <LoadingState label="Loading invite" />
@@ -61,17 +73,25 @@ export function InviteAcceptPage() {
     return (
       <ErrorState
         title="This invite isn’t valid"
-        description={`It may have expired, been used or cancelled, or be for another email.${
-          user ? ` You’re signed in as ${user.email}.` : ''
-        } Ask for a new invite.`}
+        description="The link is incomplete. Ask for a new invite."
+        action={<Link to="/">Go to your organizations</Link>}
+      />
+    )
+  }
+
+  if (rejected) {
+    return (
+      <ErrorState
+        title="This invite isn’t valid"
+        description={`You’re signed in as ${user?.email}. If you were invited with another email, use that account. Otherwise the invite may have expired or been used, so ask for a new one.`}
         action={
-          <div className="flex gap-4">
-            <Link to="/">Go to your organizations</Link>
-            {user && (
-              <button type="button" className="text-text-secondary hover:text-text-primary" onClick={() => void signOut()}>
-                Sign out
-              </button>
-            )}
+          <div className="flex flex-wrap gap-4">
+            <button type="button" className={quietButton} onClick={() => void signOut()}>
+              Use a different account
+            </button>
+            <button type="button" className={quietButton} onClick={leave}>
+              Not now
+            </button>
           </div>
         }
       />
@@ -102,13 +122,14 @@ export function InviteAcceptPage() {
           >
             Accept invite
           </button>
-          <button
-            type="button"
-            className="mt-4 text-sm text-text-secondary hover:text-text-primary"
-            onClick={() => void signOut()}
-          >
-            Use a different account
-          </button>
+          <div className="mt-4 flex justify-between gap-4">
+            <button type="button" className={quietButton} onClick={() => void signOut()}>
+              Use a different account
+            </button>
+            <button type="button" className={quietButton} onClick={leave}>
+              Not now
+            </button>
+          </div>
         </>
       ) : (
         <>

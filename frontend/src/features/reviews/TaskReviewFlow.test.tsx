@@ -83,7 +83,7 @@ const json = (status: number, body: unknown) =>
 const page = (items: unknown[]) =>
   json(200, { items, page: 0, size: 100, totalItems: items.length })
 
-type Handler = () => Response
+type Handler = (request: Request) => Response
 
 function serve(routes: Record<string, Handler>) {
   const calls: { key: string; body: unknown }[] = []
@@ -116,19 +116,19 @@ function serve(routes: Record<string, Handler>) {
       const text = await request.clone().text()
       calls.push({ key, body: text ? JSON.parse(text) : undefined })
       const handler = all[key]
-      return handler ? handler() : json(404, { title: 'Not Found', status: 404 })
+      return handler ? handler(request) : json(404, { title: 'Not Found', status: 404 })
     }),
   )
   return calls
 }
 
-function renderApp(path: string, role: Role = 'MEMBER') {
+function renderApp(path: string, role: Role = 'MEMBER', allowSelfApproval = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const org = {
     id: ORG,
     name: 'Acme Labs',
     slug: 'acme-labs',
-    allowSelfApproval: true,
+    allowSelfApproval,
     role,
     createdBy: ASHA,
     createdAt: '2026-11-20T10:00:00Z',
@@ -361,6 +361,104 @@ describe('task review flow', () => {
         comment: 'Looks right',
       }),
     )
+  })
+
+  it('keeps a typed comment when another reviewer decides first', async () => {
+    let decided = false
+    const reviewing = task({ status: 'IN_REVIEW' })
+    serve({
+      [LIST]: () => page([reviewing]),
+      [MINE]: () => page(decided ? [] : [queueItem({ task: reviewing })]),
+      [`POST ${TASK_PATH}/reject`]: () => {
+        decided = true
+        return json(409, {
+          title: 'Conflict',
+          status: 409,
+          detail: 'The task was changed by someone else. Reload and try again.',
+        })
+      },
+    })
+    const user = userEvent.setup()
+
+    renderTasks()
+    const dialog = await openTask(user)
+    await user.type(await within(dialog).findByLabelText('Review comment'), 'A long rejection note')
+    await user.click(within(dialog).getByRole('button', { name: 'Reject' }))
+
+    await waitFor(() => expect(within(dialog).queryByRole('button', { name: 'Reject' })).toBeNull())
+    expect(within(dialog).getByLabelText('Review comment')).toHaveValue('A long rejection note')
+  })
+
+  it('tells an owner when nobody can approve', async () => {
+    const reviewing = task({ status: 'IN_REVIEW' })
+    serve({
+      [LIST]: () => page([reviewing]),
+      [`GET ${TASK_PATH}/reviews`]: () =>
+        page([
+          {
+            id: 'r1',
+            taskId: TASK,
+            taskVersion: 4,
+            action: 'SUBMITTED',
+            actorId: ASHA,
+            actorName: 'Asha',
+            jobRoleId: BACKEND,
+            jobRoleName: 'Backend',
+            approvalBasis: null,
+            selfApproved: false,
+            comment: null,
+            createdAt: '2026-11-21T10:00:00Z',
+          },
+        ]),
+      [`GET ${BASE}/projects/${PROJECT}/team`]: () =>
+        json(200, {
+          members: [
+            { userId: ASHA, email: 'asha@example.com', displayName: 'Asha', role: 'OWNER', jobRoleIds: [BACKEND] },
+          ],
+          jobRoles: [{ id: BACKEND, name: 'Backend', active: true, approvalBasis: 'ROLE_HOLDER' }],
+        }),
+    })
+    const user = userEvent.setup()
+
+    renderApp(`/orgs/${ORG}/projects/${PROJECT}`, 'OWNER', false)
+    const dialog = await openTask(user)
+
+    expect(await within(dialog).findByText(/nobody can approve this task/i)).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Add a reviewer' })).toHaveAttribute(
+      'href',
+      `/orgs/${ORG}/projects/${PROJECT}/team`,
+    )
+    expect(within(dialog).getByRole('link', { name: 'Change self-approval' })).toHaveAttribute(
+      'href',
+      `/orgs/${ORG}/team`,
+    )
+  })
+
+  it('can decide a queue item beyond the first lookup page', async () => {
+    const reviewing = task({ status: 'IN_REVIEW' })
+    serve({
+      [MINE]: (request) =>
+        new URL(request.url).searchParams.get('size') === '100'
+          ? json(200, { items: [], page: 0, size: 100, totalItems: 101 })
+          : json(200, { items: [queueItem({ task: reviewing })], page: 0, size: 20, totalItems: 101 }),
+    })
+    const user = userEvent.setup()
+
+    renderApp(`/orgs/${ORG}/reviews`)
+    const dialog = await openTask(user)
+
+    expect(await within(dialog).findByRole('button', { name: 'Approve' })).toBeInTheDocument()
+  })
+
+  it('does not treat stored outer whitespace as an unsaved edit', async () => {
+    serve({ [LIST]: () => page([task({ status: 'DONE', title: '  Add invite API  ', description: ' Notes ' })]) })
+    const user = userEvent.setup()
+
+    renderTasks()
+    await user.click(await screen.findByRole('button', { name: /Add invite API/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Edit task' })
+
+    expect(within(dialog).getByRole('button', { name: 'Reopen' })).toBeEnabled()
   })
 
   it('shows review history with former members', async () => {

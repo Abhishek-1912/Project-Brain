@@ -57,8 +57,24 @@ const page = (items: unknown[]) =>
 
 type Handler = (request: Request) => Response
 
+const jobRole = (id: string, name: string, active = true, version = 0) => ({
+  id,
+  organizationId: ORG,
+  name,
+  active,
+  createdAt: '2026-11-20T10:00:00Z',
+  updatedAt: '2026-11-20T10:00:00Z',
+  version,
+})
+
+const JOB_ROLES = `GET /organizations/${ORG}/job-roles`
+const BACKEND = '77777777-7777-4777-8777-777777777777'
+
 function serve(routes: Record<string, Handler>) {
   const calls: { key: string; body: unknown }[] = []
+  const defaults: Record<string, Handler> = {
+    [JOB_ROLES]: () => page([jobRole(BACKEND, 'Backend')]),
+  }
   vi.stubGlobal(
     'fetch',
     vi.fn(async (request: Request) => {
@@ -66,7 +82,7 @@ function serve(routes: Record<string, Handler>) {
       const key = `${request.method} ${pathname.replace('/api/v1', '')}`
       const text = await request.clone().text()
       calls.push({ key, body: text ? JSON.parse(text) : undefined })
-      const handler = routes[key]
+      const handler = routes[key] ?? defaults[key]
       return handler
         ? handler(request)
         : json(404, { title: 'Not Found', status: 404 })
@@ -75,7 +91,7 @@ function serve(routes: Record<string, Handler>) {
   return calls
 }
 
-function renderPage(role: Role) {
+function renderPage(role: Role, allowSelfApproval = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -83,7 +99,7 @@ function renderPage(role: Role) {
     id: ORG,
     name: 'Acme Labs',
     slug: 'acme-labs',
-    allowSelfApproval: true,
+    allowSelfApproval,
     role,
     createdBy: ME,
     createdAt: '2026-11-20T10:00:00Z',
@@ -288,6 +304,97 @@ describe('TeamPage', () => {
 
     expect(await screen.findByLabelText('Access role for Asha')).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Remove Asha' })).toBeNull()
+  })
+
+  it('lets an owner change self-approval', async () => {
+    const calls = serve({
+      [MEMBERS]: () => page([member(ME, 'Asha', 'OWNER')]),
+      [INVITES]: () => page([]),
+      [`PATCH /organizations/${ORG}/settings`]: () => json(200, {}),
+    })
+    const user = userEvent.setup()
+
+    renderPage('OWNER')
+    await user.click(await screen.findByRole('checkbox', { name: 'Allow self-approval' }))
+
+    await waitFor(() =>
+      expect(calls.find((call) => call.key === `PATCH /organizations/${ORG}/settings`)?.body).toEqual({
+        allowSelfApproval: false,
+        version: 0,
+      }),
+    )
+  })
+
+  it('hides settings and job role management from an admin', async () => {
+    serve({
+      [MEMBERS]: () => page([member(ME, 'Asha', 'ADMIN')]),
+      [INVITES]: () => page([]),
+    })
+
+    renderPage('ADMIN')
+
+    await screen.findByText('Asha')
+    expect(screen.queryByRole('checkbox', { name: 'Allow self-approval' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add job role' })).toBeNull()
+  })
+
+  it('lets an owner create, rename and deactivate job roles', async () => {
+    let roles = [jobRole(BACKEND, 'Backend', true, 2)]
+    const path = `/organizations/${ORG}/job-roles`
+    const calls = serve({
+      [MEMBERS]: () => page([member(ME, 'Asha', 'OWNER')]),
+      [INVITES]: () => page([]),
+      [JOB_ROLES]: () => page(roles),
+      [`POST ${path}`]: () => {
+        const created = jobRole('66666666-6666-4666-8666-666666666666', 'Designer')
+        roles = [...roles, created]
+        return json(201, created)
+      },
+      [`PATCH ${path}/${BACKEND}`]: () => {
+        roles = [jobRole(BACKEND, 'Platform', false, 3), ...roles.slice(1)]
+        return json(200, roles[0])
+      },
+    })
+    const user = userEvent.setup()
+
+    renderPage('OWNER')
+    await user.type(await screen.findByLabelText('New job role'), '  Designer ')
+    await user.click(screen.getByRole('button', { name: 'Add job role' }))
+    expect(await screen.findByLabelText('Name for Designer')).toHaveValue('Designer')
+    expect(calls.find((call) => call.key === `POST ${path}`)?.body).toEqual({ name: 'Designer' })
+
+    const name = screen.getByLabelText('Name for Backend')
+    await user.clear(name)
+    await user.type(name, 'Platform')
+    await user.click(screen.getByRole('button', { name: 'Save Backend' }))
+    await waitFor(() =>
+      expect(calls.find((call) => call.key === `PATCH ${path}/${BACKEND}`)?.body).toEqual({
+        name: 'Platform',
+        version: 2,
+      }),
+    )
+    expect(await screen.findByRole('button', { name: 'Reactivate Platform' })).toBeInTheDocument()
+  })
+
+  it('deactivates a job role with its version', async () => {
+    const path = `/organizations/${ORG}/job-roles/${BACKEND}`
+    const calls = serve({
+      [MEMBERS]: () => page([member(ME, 'Asha', 'OWNER')]),
+      [INVITES]: () => page([]),
+      [JOB_ROLES]: () => page([jobRole(BACKEND, 'Backend', true, 4)]),
+      [`PATCH ${path}`]: () => json(200, jobRole(BACKEND, 'Backend', false, 5)),
+    })
+    const user = userEvent.setup()
+
+    renderPage('OWNER')
+    await user.click(await screen.findByRole('button', { name: 'Deactivate Backend' }))
+
+    await waitFor(() =>
+      expect(calls.find((call) => call.key === `PATCH ${path}`)?.body).toEqual({
+        active: false,
+        version: 4,
+      }),
+    )
   })
 
   it('shows an API error when a role change fails', async () => {

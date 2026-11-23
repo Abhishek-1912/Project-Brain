@@ -68,6 +68,24 @@ export function useUpdateMember(orgId: string) {
   })
 }
 
+export function useUpdateApprovalSettings(orgId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: components['schemas']['OrganizationSettingsPatch']) => {
+      const { data } = await api.PATCH('/organizations/{orgId}/settings', {
+        params: { path: { orgId } },
+        body,
+      })
+      return data!
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['organizations'] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews', orgId] }),
+      ]),
+  })
+}
+
 export function useRemoveMember(orgId: string) {
   const queryClient = useQueryClient()
   return useMutation({

@@ -4,8 +4,8 @@ import { InlineAlert } from '../../components/InlineAlert'
 import { LoadingState } from '../../components/LoadingState'
 import { useCurrentOrg } from '../organizations/useOrganizations'
 import { TaskPanel } from '../tasks/TaskPanel'
-import { useMembers, type Task } from '../tasks/useTasks'
-import { reviewReason, useMyReviews } from './useReviews'
+import { useMembers } from '../tasks/useTasks'
+import { reviewReason, useMyReviews, type ReviewQueueItem } from './useReviews'
 
 const quietButton =
   'rounded px-2 py-1 text-sm text-text-secondary hover:bg-surface-bright hover:text-text-primary disabled:text-text-disabled disabled:hover:bg-transparent'
@@ -18,7 +18,7 @@ export function MyReviewsPage() {
 
 function OrganizationReviews({ orgId }: { orgId: string }) {
   const [page, setPage] = useState(0)
-  const [openTask, setOpenTask] = useState<Task | null>(null)
+  const [openItem, setOpenItem] = useState<ReviewQueueItem | null>(null)
   const reviews = useMyReviews(orgId, page)
   const members = useMembers(orgId)
   const data = reviews.data
@@ -69,7 +69,7 @@ function OrganizationReviews({ orgId }: { orgId: string }) {
                       <button
                         type="button"
                         className="text-left font-medium break-words text-text-primary hover:underline"
-                        onClick={() => setOpenTask(item.task)}
+                        onClick={() => setOpenItem(item)}
                       >
                         {item.task.title}
                       </button>
@@ -131,15 +131,16 @@ function OrganizationReviews({ orgId }: { orgId: string }) {
       <h2 className="text-lg font-semibold text-text-primary">Waiting for my review</h2>
       <p className="mt-1 mb-4 text-sm">Tasks you can approve or reject, oldest first.</p>
       {content}
-      {openTask && (
+      {openItem && (
         <TaskPanel
-          key={openTask.id}
+          key={openItem.task.id}
           orgId={orgId}
-          projectId={openTask.projectId}
-          task={openTask}
+          projectId={openItem.task.projectId}
+          task={openItem.task}
+          queueItem={openItem}
           members={members.data}
           readOnly={false}
-          onClose={() => setOpenTask(null)}
+          onClose={() => setOpenItem(null)}
         />
       )}
     </section>

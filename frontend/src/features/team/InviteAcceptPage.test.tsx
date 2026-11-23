@@ -158,6 +158,57 @@ describe('InviteAcceptPage', () => {
       await screen.findByRole('heading', { name: 'This invite isn’t valid' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('ravi@example.com')
+    expect(sessionStorage.getItem(TOKEN_KEY)).toBe('used-token')
+    expect(screen.getByRole('button', { name: 'Use a different account' })).toBeInTheDocument()
+  })
+
+  it('keeps the invite for a different account', async () => {
+    signedIn(session)
+    auth.signOut.mockImplementation(async () => {
+      act(() => auth.onAuthStateChange.mock.calls[0][0]('SIGNED_OUT', null))
+      return { error: null }
+    })
+    serve({
+      [ACCEPT]: () =>
+        json(404, { title: 'Not Found', status: 404, detail: 'This invite is not valid.' }),
+    })
+    const user = userEvent.setup()
+
+    renderAt('/invite#token=secret-token')
+    await user.click(await screen.findByRole('button', { name: 'Accept invite' }))
+    await user.click(await screen.findByRole('button', { name: 'Use a different account' }))
+
+    expect(await screen.findByRole('link', { name: 'Sign in' })).toBeInTheDocument()
+    expect(sessionStorage.getItem(TOKEN_KEY)).toBe('secret-token')
+  })
+
+  it('lets a user leave the invite for now', async () => {
+    signedIn(session)
+    serve({
+      'GET /organizations': () =>
+        json(200, { items: [organization], page: 0, size: 100, totalItems: 1 }),
+      [`GET /organizations/${ORG}`]: () => json(200, organization),
+      [`GET /organizations/${ORG}/projects`]: () =>
+        json(200, { items: [], page: 0, size: 20, totalItems: 0 }),
+    })
+    const user = userEvent.setup()
+
+    renderAt('/invite#token=secret-token')
+    await user.click(await screen.findByRole('button', { name: 'Not now' }))
+
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(`/orgs/${ORG}`))
+    expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull()
+  })
+
+  it('clears a pending invite when the user signs out elsewhere', async () => {
+    signedIn(session)
+    sessionStorage.setItem(TOKEN_KEY, 'secret-token')
+    serve({})
+
+    renderAt('/login')
+    await waitFor(() => expect(auth.onAuthStateChange).toHaveBeenCalled())
+    act(() => auth.onAuthStateChange.mock.calls[0][0]('SIGNED_OUT', null))
+
     expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull()
   })
 

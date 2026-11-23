@@ -7,10 +7,12 @@ import { LoadingState } from '../../components/LoadingState'
 import { useCurrentOrg, type Role } from '../organizations/useOrganizations'
 import { memberName, useMembers, type Member } from '../tasks/useTasks'
 import { InviteDialog } from './InviteDialog'
+import { JobRolesSection } from './JobRolesSection'
 import {
   useCancelInvite,
   useInvites,
   useRemoveMember,
+  useUpdateApprovalSettings,
   useUpdateMember,
   type Invite,
 } from './useTeam'
@@ -138,6 +140,7 @@ function OrganizationTeam() {
   const members = useMembers(org.id)
   const invites = useInvites(org.id, canInvite)
   const updateMember = useUpdateMember(org.id)
+  const updateSettings = useUpdateApprovalSettings(org.id)
   const [inviting, setInviting] = useState(false)
   const [removing, setRemoving] = useState<Member | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -286,6 +289,37 @@ function OrganizationTeam() {
           )}
         </div>
       )}
+
+      {can('EDIT_ORGANIZATION') && (
+        <div className="mt-8">
+          <h3 className="mb-2 text-base font-semibold text-text-primary">Approvals</h3>
+          <label className="flex max-w-prose items-start gap-3 text-sm leading-6">
+            <input
+              type="checkbox"
+              aria-label="Allow self-approval"
+              className="mt-1 size-4 accent-primary"
+              checked={org.allowSelfApproval}
+              disabled={updateSettings.isPending}
+              onChange={(event) => {
+                setError(null)
+                updateSettings.mutate(
+                  { allowSelfApproval: event.target.checked, version: org.version },
+                  {
+                    onError: (caught) =>
+                      setError(apiMessage(caught, 'The setting wasn’t saved. Check your connection and try again.')),
+                  },
+                )
+              }}
+            />
+            <span>
+              <span className="block font-medium text-text-primary">Allow self-approval</span>
+              People can approve work they submitted, and the record marks it as self-approved.
+            </span>
+          </label>
+        </div>
+      )}
+
+      {can('MANAGE_JOB_ROLES') && <JobRolesSection orgId={org.id} />}
 
       {inviting && (
         <InviteDialog orgId={org.id} canInviteAdmin={canManage} onClose={() => setInviting(false)} />

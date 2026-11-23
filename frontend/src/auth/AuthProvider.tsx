@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { clearPendingInvite } from '../features/team/pendingInvite'
 import { supabase } from './supabase'
 
 interface AuthState {
@@ -31,7 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
 
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      // An invite in progress must not carry into the next account in this tab.
+      if (event === 'SIGNED_OUT') clearPendingInvite()
       if (!active) return
       setSession(next)
       setLoading(false)

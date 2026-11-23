@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/client'
 import { Dialog } from '../../components/Dialog'
 import { TaskReviewSection } from '../reviews/TaskReviewSection'
+import type { ReviewQueueItem } from '../reviews/useReviews'
 import { useJobRoles, type JobRole } from '../team/useProjectTeam'
 import {
   formatDueDate,
@@ -75,14 +76,16 @@ function toValues(form: TaskForm) {
 // Sends only changed fields, so a save can't overwrite values it didn't touch.
 function toPatch(task: Task, form: TaskForm): TaskPatch | null {
   const values = toValues(form)
+  // Compared in form shape, so stored outer whitespace never counts as an edit.
+  const saved = toValues(toForm(task))
   const patch: TaskPatch = { version: task.version }
-  if (values.title !== task.title) patch.title = values.title
-  if (values.description !== task.description) patch.description = values.description
-  if (values.status !== task.status) patch.status = values.status
-  if (values.priority !== task.priority) patch.priority = values.priority
-  if (values.assigneeId !== task.assigneeId) patch.assigneeId = values.assigneeId
-  if (values.dueDate !== task.dueDate) patch.dueDate = values.dueDate
-  if (values.responsibleJobRoleId && values.responsibleJobRoleId !== task.responsibleJobRoleId) {
+  if (values.title !== saved.title) patch.title = values.title
+  if (values.description !== saved.description) patch.description = values.description
+  if (values.status !== saved.status) patch.status = values.status
+  if (values.priority !== saved.priority) patch.priority = values.priority
+  if (values.assigneeId !== saved.assigneeId) patch.assigneeId = values.assigneeId
+  if (values.dueDate !== saved.dueDate) patch.dueDate = values.dueDate
+  if (values.responsibleJobRoleId && values.responsibleJobRoleId !== saved.responsibleJobRoleId) {
     patch.responsibleJobRoleId = values.responsibleJobRoleId
   }
   return Object.keys(patch).length > 1 ? patch : null
@@ -219,6 +222,7 @@ interface TaskPanelProps {
   task?: Task
   members?: Member[]
   readOnly: boolean
+  queueItem?: ReviewQueueItem
   onClose(): void
 }
 
@@ -234,6 +238,7 @@ function TaskEditor({
   projectId,
   task,
   members,
+  queueItem,
   onClose,
 }: Omit<TaskPanelProps, 'readOnly'>) {
   const createTask = useCreateTask(orgId, projectId)
@@ -488,6 +493,7 @@ function TaskEditor({
           <TaskReviewSection
             orgId={orgId}
             task={baseline}
+            knownQueueItem={queueItem}
             dirty={dirty}
             onTaskChanged={applyTask}
             onReload={reload}

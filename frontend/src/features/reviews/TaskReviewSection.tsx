@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '../../api/client'
+import { useCurrentOrg } from '../organizations/useOrganizations'
 import type { Task } from '../tasks/useTasks'
+import { useProjectTeam, type ProjectTeam } from '../team/useProjectTeam'
 import {
   QUEUE_LOOKUP_SIZE,
   reviewReason,
@@ -8,6 +11,7 @@ import {
   useReviewAction,
   useTaskReviews,
   type ReviewAction,
+  type ReviewQueueItem,
   type TaskReview,
 } from './useReviews'
 
@@ -28,9 +32,21 @@ const ACTION_VERBS: Record<TaskReview['action'], string> = {
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
+function hasEligibleApprover(team: ProjectTeam, jobRoleId: string, submitterId?: string) {
+  const eligible = (userId: string) => userId !== submitterId
+  const holders = team.members.filter(
+    (member) => member.role !== 'VIEWER' && member.jobRoleIds.includes(jobRoleId) && eligible(member.userId),
+  )
+  return (
+    holders.length > 0 ||
+    team.members.some((member) => member.role === 'OWNER' && eligible(member.userId))
+  )
+}
+
 interface TaskReviewSectionProps {
   orgId: string
   task: Task
+  knownQueueItem?: ReviewQueueItem
   dirty?: boolean
   readOnly?: boolean
   onTaskChanged?(task: Task): void
@@ -40,11 +56,13 @@ interface TaskReviewSectionProps {
 export function TaskReviewSection({
   orgId,
   task,
+  knownQueueItem,
   dirty = false,
   readOnly = false,
   onTaskChanged,
   onReload,
 }: TaskReviewSectionProps) {
+  const { org } = useCurrentOrg()
   const history = useTaskReviews(orgId, task.id)
   const inReview = task.status === 'IN_REVIEW'
   const queue = useMyReviews(orgId, 0, QUEUE_LOOKUP_SIZE, !readOnly && inReview)
@@ -53,7 +71,18 @@ export function TaskReviewSection({
   const [commentError, setCommentError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
-  const queueItem = inReview ? queue.data?.items.find((item) => item.task.id === task.id) : undefined
+  const listed = queue.data?.items.find((item) => item.task.id === task.id)
+  // The lookup holds the first page only, so a page opened from My reviews stays decidable.
+  const queueTruncated = Boolean(queue.data && queue.data.totalItems > queue.data.items.length)
+  const queueItem = inReview ? (listed ?? (queueTruncated ? knownQueueItem : undefined)) : undefined
+  const checkCoverage =
+    !readOnly && inReview && org.role === 'OWNER' && !org.allowSelfApproval && Boolean(queue.data) && !queueItem
+  const team = useProjectTeam(orgId, task.projectId, checkCoverage)
+  const submitterId = history.data?.find((entry) => entry.action === 'SUBMITTED')?.actorId
+  const nobodyCanApprove =
+    checkCoverage &&
+    Boolean(team.data && history.data) &&
+    !hasEligibleApprover(team.data!, task.responsibleJobRoleId!, submitterId)
   const busy = reviewAction.isPending || dirty
 
   async function run(action: ReviewAction) {
@@ -102,7 +131,17 @@ export function TaskReviewSection({
         <>
           {dirty && <p className="mt-2 text-sm text-text-meta">Save your changes before using review actions.</p>}
 
-          {queueItem && (
+          {nobodyCanApprove && (
+            <div className="mt-3 rounded-md bg-warning-tint p-3 text-sm text-text-primary">
+              <p>Nobody can approve this task while self-approval is off.</p>
+              <div className="mt-2 flex flex-wrap gap-4">
+                <Link to={`/orgs/${orgId}/projects/${task.projectId}/team`}>Add a reviewer</Link>
+                <Link to={`/orgs/${orgId}/team`}>Change self-approval</Link>
+              </div>
+            </div>
+          )}
+
+          {(queueItem || comment) && (
             <div className="mt-3 flex flex-col gap-1.5">
               <label htmlFor="review-comment" className="text-sm font-medium text-text-primary">
                 Review comment
@@ -110,6 +149,7 @@ export function TaskReviewSection({
               <textarea
                 id="review-comment"
                 maxLength={2000}
+                readOnly={!queueItem}
                 className="min-h-20 w-full resize-y rounded-md border border-border bg-surface-low px-3 py-2 text-sm text-text-primary aria-invalid:border-error"
                 placeholder="Required when rejecting"
                 value={comment}
