@@ -29,10 +29,14 @@ class StoryController {
 
 	private final AiRunService runs;
 
-	StoryController(ClarificationService clarifications, StoryService stories, AiRunService runs) {
+	private final StoryReviewService reviews;
+
+	StoryController(ClarificationService clarifications, StoryService stories, AiRunService runs,
+			StoryReviewService reviews) {
 		this.clarifications = clarifications;
 		this.stories = stories;
 		this.runs = runs;
+		this.reviews = reviews;
 	}
 
 	@PatchMapping("/clarifications/{questionId}")
@@ -56,6 +60,27 @@ class StoryController {
 	@PatchMapping("/stories/{storyId}")
 	StoryView update(@PathVariable UUID orgId, @PathVariable UUID storyId, @RequestBody StoryUpdate update) {
 		return stories.update(orgId, storyId, update);
+	}
+
+	@PostMapping("/stories/{storyId}/approve")
+	StoryView approve(@PathVariable UUID orgId, @PathVariable UUID storyId, @RequestBody ApproveRequest request) {
+		return reviews.approve(orgId, storyId, request.version());
+	}
+
+	@PostMapping("/stories/{storyId}/reject")
+	StoryView reject(@PathVariable UUID orgId, @PathVariable UUID storyId, @RequestBody RejectRequest request) {
+		return reviews.reject(orgId, storyId, request.version(), request.comment());
+	}
+
+	@PostMapping("/requirements/{documentId}/create-tasks")
+	StoryReviewService.CreateTasksResult createTasks(@PathVariable UUID orgId, @PathVariable UUID documentId) {
+		return reviews.createTasks(orgId, documentId);
+	}
+
+	record ApproveRequest(Long version) {
+	}
+
+	record RejectRequest(Long version, String comment) {
 	}
 
 }

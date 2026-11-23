@@ -981,6 +981,82 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/stories/{storyId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Requirements]
+      operationId: approveStory
+      summary: Approve a draft story (eligible requirements approver)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryApproval' }
+      responses:
+        '200':
+          description: Approved story
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/stories/{storyId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Requirements]
+      operationId: rejectStory
+      summary: Reject a draft story with a comment (eligible requirements approver)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryRejection' }
+      responses:
+        '200':
+          description: Rejected story
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/requirements/{documentId}/create-tasks:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags: [Requirements]
+      operationId: createTasksFromStories
+      summary: Convert approved stories into backlog tasks; repeating creates no duplicates
+      responses:
+        '200':
+          description: Tasks created by this request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateTasksResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -1413,23 +1489,23 @@ components:
         runId: { type: string, format: uuid }
     AiRun:
       type: object
-      required: [id, documentId, runType, status, inputTokens, outputTokens, billingTier, costUsd, createdAt]
+      required: [id, documentId, runType, status, provider, model, promptVersion, inputTokens, outputTokens, billingTier, costUsd, errorCode, createdAt, startedAt, finishedAt]
       properties:
         id: { type: string, format: uuid }
         documentId: { type: string, format: uuid }
         runType: { type: string, enum: [ANALYSIS, STORIES] }
         status: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED] }
-        provider: { type: string, nullable: true }
-        model: { type: string, nullable: true }
-        promptVersion: { type: string, nullable: true }
+        provider: { type: [string, 'null'] }
+        model: { type: [string, 'null'] }
+        promptVersion: { type: [string, 'null'] }
         inputTokens: { type: integer }
         outputTokens: { type: integer }
         billingTier: { type: string, enum: [FREE, PAID] }
         costUsd: { type: number }
-        errorCode: { type: string, nullable: true }
+        errorCode: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
-        startedAt: { type: string, format: date-time, nullable: true }
-        finishedAt: { type: string, format: date-time, nullable: true }
+        startedAt: { type: [string, 'null'], format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
     RequirementAnalysis:
       type: object
       required: [id, version, result, createdAt]
@@ -1440,21 +1516,21 @@ components:
         createdAt: { type: string, format: date-time }
     ClarificationQuestion:
       type: object
-      required: [id, position, question, reason, status, version]
+      required: [id, position, question, reason, status, answer, version]
       properties:
         id: { type: string, format: uuid }
         position: { type: integer }
         question: { type: string }
         reason: { type: string }
         status: { type: string, enum: [OPEN, ANSWERED, DISMISSED] }
-        answer: { type: string, nullable: true }
+        answer: { type: [string, 'null'] }
         version: { type: integer, format: int64 }
     ClarificationUpdate:
       type: object
       required: [status, version]
       properties:
         status: { type: string, enum: [ANSWERED, DISMISSED] }
-        answer: { type: string, nullable: true, maxLength: 5000 }
+        answer: { type: [string, 'null'], maxLength: 5000 }
         version: { type: integer, format: int64 }
     StorySourceQuote:
       type: object
@@ -1464,7 +1540,7 @@ components:
         verified: { type: boolean }
     StoryDraft:
       type: object
-      required: [id, documentId, analysisId, title, asA, iWant, soThat, acceptanceCriteria, priority, sourceQuotes, status, createdAt, updatedAt, version]
+      required: [id, documentId, analysisId, title, asA, iWant, soThat, acceptanceCriteria, priority, jobRoleId, sourceQuotes, status, taskId, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         documentId: { type: string, format: uuid }
@@ -1477,12 +1553,12 @@ components:
           type: array
           items: { type: string }
         priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
-        jobRoleId: { type: string, format: uuid, nullable: true }
+        jobRoleId: { type: [string, 'null'], format: uuid }
         sourceQuotes:
           type: array
           items: { $ref: '#/components/schemas/StorySourceQuote' }
         status: { type: string, enum: [DRAFT, APPROVED, REJECTED, CONVERTED] }
-        taskId: { type: string, format: uuid, nullable: true }
+        taskId: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, format: int64 }
@@ -1510,21 +1586,46 @@ components:
           maxItems: 20
           items: { type: string, maxLength: 1000 }
         priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
-        jobRoleId: { type: string, format: uuid, nullable: true }
+        jobRoleId: { type: [string, 'null'], format: uuid }
         version: { type: integer, format: int64 }
+    StoryApproval:
+      type: object
+      required: [version]
+      properties:
+        version: { type: integer, format: int64 }
+    StoryRejection:
+      type: object
+      required: [version, comment]
+      properties:
+        version: { type: integer, format: int64 }
+        comment: { type: string, minLength: 1, maxLength: 2000 }
+    CreateTasksResult:
+      type: object
+      required: [created]
+      properties:
+        created:
+          type: array
+          items:
+            type: object
+            required: [storyId, taskId]
+            properties:
+              storyId: { type: string, format: uuid }
+              taskId: { type: string, format: uuid }
     RequirementAnalysisState:
       type: object
-      required: [questions]
+      required: [analysis, questions, latestRun]
       properties:
         analysis:
-          nullable: true
-          allOf: [{ $ref: '#/components/schemas/RequirementAnalysis' }]
+          anyOf:
+            - $ref: '#/components/schemas/RequirementAnalysis'
+            - type: 'null'
         questions:
           type: array
           items: { $ref: '#/components/schemas/ClarificationQuestion' }
         latestRun:
-          nullable: true
-          allOf: [{ $ref: '#/components/schemas/AiRun' }]
+          anyOf:
+            - $ref: '#/components/schemas/AiRun'
+            - type: 'null'
     RequirementDocument:
       type: object
       required: [id, organizationId, projectId, name, mediaType, sizeBytes, characters, approverJobRoleId, uploadedBy, createdAt, updatedAt, version]

@@ -60,6 +60,9 @@ public class Task {
 	@Column(name = "updated_at", nullable = false)
 	private OffsetDateTime updatedAt;
 
+	@Column(name = "source_story_id", updatable = false)
+	private UUID sourceStoryId;
+
 	// A wrapper type, so Spring Data treats a new entity with an assigned ID as an insert.
 	@Version
 	private Long version;
@@ -96,6 +99,10 @@ public class Task {
 	// PostgreSQL stores microseconds, so responses match what a later read returns.
 	private static OffsetDateTime now() {
 		return OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+	}
+
+	void setSourceStoryId(UUID sourceStoryId) {
+		this.sourceStoryId = sourceStoryId;
 	}
 
 	UUID getId() {

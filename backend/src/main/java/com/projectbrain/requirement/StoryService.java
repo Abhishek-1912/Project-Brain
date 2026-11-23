@@ -293,7 +293,8 @@ class StoryService {
 			.orElseThrow(() -> new NotFoundException("Story not found."));
 	}
 
-	private StoryView load(UUID orgId, UUID storyId) {
+	/** Must run inside an organization transaction. */
+	StoryView load(UUID orgId, UUID storyId) {
 		return jdbc.sql("SELECT " + COLUMNS + " FROM brain.story_drafts WHERE organization_id = :orgId AND id = :id")
 			.param("orgId", orgId)
 			.param("id", storyId)
