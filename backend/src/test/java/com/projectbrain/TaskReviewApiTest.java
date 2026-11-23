@@ -1,7 +1,9 @@
 package com.projectbrain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -293,6 +295,164 @@ class TaskReviewApiTest extends TeamApiTestBase {
 		action("approve", f.owner, f.org, task, 1, null).andExpect(status().isNotFound());
 		action("approve", f.owner, other.org, task, 1, null).andExpect(status().isNotFound());
 		assertThat(countRows("SELECT count(*) FROM brain.tasks WHERE id = ? AND status = 'IN_REVIEW'", task)).isEqualTo(1);
+	}
+
+	@Test
+	void myReviewsShowsOnlyTasksCurrentUserCanDecide() throws Exception {
+		Fixture f = fixture();
+		UUID outsiderRoleHolder = seedMember(f.org, "MEMBER");
+		UUID qa = seedJobRole(f.org, "QA", true);
+		assignJobRole(f.org, f.project, f.reviewer, f.role, f.owner);
+		assignJobRole(f.org, f.project, outsiderRoleHolder, qa, f.owner);
+		UUID backendTask = submittedTask(f);
+		seedTask(f, "IN_PROGRESS", 0);
+
+		mvc.perform(get(mine(f.org)).with(as(f.reviewer)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.totalItems").value(1))
+			.andExpect(jsonPath("$.items", hasSize(1)))
+			.andExpect(jsonPath("$.items[0].task.id").value(backendTask.toString()))
+			.andExpect(jsonPath("$.items[0].task.status").value("IN_REVIEW"))
+			.andExpect(jsonPath("$.items[0].projectName").value("Project " + f.project))
+			.andExpect(jsonPath("$.items[0].jobRoleName").value("Backend"))
+			.andExpect(jsonPath("$.items[0].submittedBy").value(f.author.toString()))
+			.andExpect(jsonPath("$.items[0].submittedByName").value("User"))
+			.andExpect(jsonPath("$.items[0].submittedAt").isNotEmpty())
+			.andExpect(jsonPath("$.items[0].approvalBasis").value("ROLE_HOLDER"))
+			.andExpect(jsonPath("$.items[0].selfApproval").value(false));
+		for (UUID excluded : List.of(outsiderRoleHolder, f.owner, f.author)) {
+			mvc.perform(get(mine(f.org)).with(as(excluded))).andExpect(jsonPath("$.totalItems").value(0));
+		}
+	}
+
+	@Test
+	void myReviewsMarksOwnerFallbackAndSelfApproval() throws Exception {
+		Fixture f = fixture();
+		UUID fallback = submittedTask(f);
+		UUID selfRole = seedJobRole(f.org, "QA", true);
+		assignJobRole(f.org, f.project, f.author, selfRole, f.owner);
+		UUID selfTask = UUID.randomUUID();
+		execute("""
+				INSERT INTO brain.tasks (id, organization_id, project_id, title, status, responsible_job_role_id, created_by)
+				VALUES (?, ?, ?, 'Self', 'TODO', ?, ?)
+				""", selfTask, f.org, f.project, selfRole, f.author);
+		action("submit", f.author, f.org, selfTask, 0, null).andExpect(status().isOk());
+
+		mvc.perform(get(mine(f.org)).with(as(f.owner)))
+			.andExpect(jsonPath("$.totalItems").value(1))
+			.andExpect(jsonPath("$.items[0].task.id").value(fallback.toString()))
+			.andExpect(jsonPath("$.items[0].approvalBasis").value("OWNER_FALLBACK"))
+			.andExpect(jsonPath("$.items[0].selfApproval").value(false));
+		mvc.perform(get(mine(f.org)).with(as(f.author)))
+			.andExpect(jsonPath("$.totalItems").value(1))
+			.andExpect(jsonPath("$.items[0].task.id").value(selfTask.toString()))
+			.andExpect(jsonPath("$.items[0].approvalBasis").value("ROLE_HOLDER"))
+			.andExpect(jsonPath("$.items[0].selfApproval").value(true));
+
+		execute("UPDATE brain.organizations SET allow_self_approval = false WHERE id = ?", f.org);
+		mvc.perform(get(mine(f.org)).with(as(f.author))).andExpect(jsonPath("$.totalItems").value(0));
+		mvc.perform(get(mine(f.org)).with(as(f.owner))).andExpect(jsonPath("$.totalItems").value(2));
+	}
+
+	@Test
+	void myReviewsIsOldestFirstAndPaginated() throws Exception {
+		Fixture f = fixture();
+		assignJobRole(f.org, f.project, f.reviewer, f.role, f.owner);
+		UUID first = submittedTask(f);
+		UUID second = submittedTask(f);
+		UUID third = submittedTask(f);
+
+		mvc.perform(get(mine(f.org)).with(as(f.reviewer)).param("size", "2"))
+			.andExpect(jsonPath("$.totalItems").value(3))
+			.andExpect(jsonPath("$.items[0].task.id").value(first.toString()))
+			.andExpect(jsonPath("$.items[1].task.id").value(second.toString()));
+		mvc.perform(get(mine(f.org)).with(as(f.reviewer)).param("page", "1").param("size", "2"))
+			.andExpect(jsonPath("$.items", hasSize(1)))
+			.andExpect(jsonPath("$.items[0].task.id").value(third.toString()));
+	}
+
+	@Test
+	void deletedTaskLeavesMyReviews() throws Exception {
+		Fixture f = fixture();
+		assignJobRole(f.org, f.project, f.reviewer, f.role, f.owner);
+		UUID task = submittedTask(f);
+
+		mvc.perform(delete(taskUrl(f.org, task)).with(as(f.author))).andExpect(status().isNoContent());
+
+		mvc.perform(get(mine(f.org)).with(as(f.reviewer))).andExpect(jsonPath("$.totalItems").value(0));
+	}
+
+	@Test
+	void archivedProjectLeavesMyReviews() throws Exception {
+		Fixture f = fixture();
+		assignJobRole(f.org, f.project, f.reviewer, f.role, f.owner);
+		submittedTask(f);
+		execute("UPDATE brain.projects SET status = 'ARCHIVED' WHERE id = ?", f.project);
+
+		mvc.perform(get(mine(f.org)).with(as(f.reviewer))).andExpect(jsonPath("$.totalItems").value(0));
+	}
+
+	@Test
+	void queueMembershipMatchesApprovePermission() throws Exception {
+		for (boolean selfApproval : List.of(true, false)) {
+			for (boolean authorHoldsRole : List.of(true, false)) {
+				Fixture f = fixture();
+				UUID viewer = seedMember(f.org, "VIEWER");
+				execute("UPDATE brain.organizations SET allow_self_approval = ? WHERE id = ?", selfApproval, f.org);
+				assignJobRole(f.org, f.project, viewer, f.role, f.owner);
+				if (authorHoldsRole) {
+					assignJobRole(f.org, f.project, f.author, f.role, f.owner);
+				}
+				UUID task = submittedTask(f);
+				for (UUID user : List.of(f.owner, f.author, f.reviewer, viewer)) {
+					String body = mvc.perform(get(mine(f.org)).with(as(user)))
+						.andExpect(status().isOk())
+						.andReturn()
+						.getResponse()
+						.getContentAsString();
+					boolean queued = body.contains(task.toString());
+					int approval = action("reject", user, f.org, task, 1, "Permission probe").andReturn()
+						.getResponse()
+						.getStatus();
+					assertThat(approval == 200).as("user %s self=%s holder=%s", user, selfApproval, authorHoldsRole)
+						.isEqualTo(queued);
+					if (approval == 200) {
+						action("submit", f.author, f.org, task, 2, null).andExpect(status().isOk());
+						execute("UPDATE brain.tasks SET version = 1 WHERE id = ?", task);
+					}
+				}
+			}
+		}
+	}
+
+	@Test
+	void reviewHistoryIsNewestFirstAndKeepsRemovedActor() throws Exception {
+		Fixture f = fixture();
+		assignJobRole(f.org, f.project, f.reviewer, f.role, f.owner);
+		UUID task = submittedTask(f);
+		action("reject", f.reviewer, f.org, task, 1, "Fix expiry").andExpect(status().isOk());
+		mvc.perform(delete(ORGS + "/" + f.org + "/members/" + f.reviewer).with(as(f.owner)))
+			.andExpect(status().isNoContent());
+
+		mvc.perform(get(taskUrl(f.org, task) + "/reviews").with(as(f.author)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.totalItems").value(2))
+			.andExpect(jsonPath("$.items[0].action").value("REJECTED"))
+			.andExpect(jsonPath("$.items[0].actorId").value(f.reviewer.toString()))
+			.andExpect(jsonPath("$.items[0].actorName").doesNotExist())
+			.andExpect(jsonPath("$.items[0].comment").value("Fix expiry"))
+			.andExpect(jsonPath("$.items[0].taskVersion").value(1))
+			.andExpect(jsonPath("$.items[0].jobRoleName").value("Backend"))
+			.andExpect(jsonPath("$.items[0].approvalBasis").value("ROLE_HOLDER"))
+			.andExpect(jsonPath("$.items[1].action").value("SUBMITTED"))
+			.andExpect(jsonPath("$.items[1].actorName").value("User"));
+
+		Fixture other = fixture();
+		mvc.perform(get(taskUrl(other.org, task) + "/reviews").with(as(other.owner))).andExpect(status().isNotFound());
+	}
+
+	private static String mine(UUID org) {
+		return ORGS + "/" + org + "/reviews/mine";
 	}
 
 	private Fixture fixture() throws Exception {

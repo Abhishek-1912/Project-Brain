@@ -28,7 +28,8 @@ class OrganizationService implements ApprovalSettings {
 	private static final String ENTITY_TYPE = "ORGANIZATION";
 
 	private static final String SELECT_FOR_USER = """
-			SELECT o.id, o.name, o.slug, m.role, o.created_by, o.created_at, o.updated_at, o.version
+			SELECT o.id, o.name, o.slug, m.role, o.created_by, o.created_at, o.updated_at, o.version,
+			       o.allow_self_approval
 			FROM brain.organizations o
 			JOIN brain.organization_members m ON m.organization_id = o.id AND m.user_id = :userId
 			""";
@@ -37,7 +38,7 @@ class OrganizationService implements ApprovalSettings {
 			row.getObject("id", UUID.class), row.getString("name"), row.getString("slug"),
 			Role.valueOf(row.getString("role")), row.getObject("created_by", UUID.class),
 			row.getObject("created_at", OffsetDateTime.class), row.getObject("updated_at", OffsetDateTime.class),
-			row.getLong("version"));
+			row.getLong("version"), row.getBoolean("allow_self_approval"));
 
 	private final OrgTx orgTx;
 
@@ -155,6 +156,34 @@ class OrganizationService implements ApprovalSettings {
 		});
 	}
 
+	Organization updateSettings(UUID orgId, boolean allowSelfApproval, long version) {
+		UUID userId = currentUser.get().id();
+		return orgTx.inOrg(orgId, Permission.EDIT_ORGANIZATION, () -> {
+			Organization existing = load(orgId, userId);
+			if (existing.version() != version) {
+				throw staleVersion();
+			}
+			if (existing.allowSelfApproval() == allowSelfApproval) {
+				return existing;
+			}
+			int updated = jdbc.sql("""
+					UPDATE brain.organizations
+					SET allow_self_approval = :allowSelfApproval, updated_at = now(), version = version + 1
+					WHERE id = :id AND version = :version
+					""")
+				.param("allowSelfApproval", allowSelfApproval)
+				.param("id", orgId)
+				.param("version", version)
+				.update();
+			if (updated == 0) {
+				throw staleVersion();
+			}
+			auditLog.record(orgId, "SELF_APPROVAL_SETTING_CHANGED", ENTITY_TYPE, orgId,
+					Map.of("name", existing.name(), "allowSelfApproval", allowSelfApproval));
+			return load(orgId, userId);
+		});
+	}
+
 	private Organization load(UUID orgId, UUID userId) {
 		return jdbc.sql(SELECT_FOR_USER + " WHERE o.id = :orgId")
 			.param("userId", userId)
@@ -168,7 +197,7 @@ class OrganizationService implements ApprovalSettings {
 	}
 
 	record Organization(UUID id, String name, String slug, Role role, UUID createdBy, OffsetDateTime createdAt,
-			OffsetDateTime updatedAt, long version) {
+			OffsetDateTime updatedAt, long version, boolean allowSelfApproval) {
 	}
 
 }
