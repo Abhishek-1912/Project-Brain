@@ -25,6 +25,7 @@ const PROJECT = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const TASK = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 const ASHA = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
 const RAVI = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+const BACKEND = '77777777-7777-4777-8777-777777777777'
 const PROJECT_PATH = `GET /organizations/${ORG}/projects/${PROJECT}`
 const MEMBERS = `GET /organizations/${ORG}/members`
 const LIST = `GET /organizations/${ORG}/projects/${PROJECT}/tasks`
@@ -85,6 +86,18 @@ function serve(routes: Record<string, Handler>, projectStatus = 'ACTIVE') {
   const all: Record<string, Handler> = {
     [PROJECT_PATH]: () => json(200, projectBody(projectStatus)),
     [MEMBERS]: () => page([member(ASHA, 'Asha'), member(RAVI, 'Ravi')]),
+    [`GET /organizations/${ORG}/job-roles`]: () =>
+      page([
+        {
+          id: BACKEND,
+          organizationId: ORG,
+          name: 'Backend',
+          active: true,
+          createdAt: '2026-11-20T10:00:00Z',
+          updatedAt: '2026-11-20T10:00:00Z',
+          version: 0,
+        },
+      ]),
     ...routes,
   }
   vi.stubGlobal(
@@ -203,6 +216,8 @@ describe('TaskListPage', () => {
     await user.click(screen.getByRole('button', { name: 'New task' }))
     const dialog = screen.getByRole('dialog', { name: 'New task' })
     await user.type(within(dialog).getByLabelText('Title'), '  Ship it  ')
+    await within(dialog).findByRole('option', { name: 'Backend' })
+    await user.selectOptions(within(dialog).getByLabelText('Responsible role'), 'Backend')
     await user.click(within(dialog).getByRole('button', { name: 'Create task' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -213,6 +228,7 @@ describe('TaskListPage', () => {
       priority: 'MEDIUM',
       assigneeId: null,
       dueDate: null,
+      responsibleJobRoleId: BACKEND,
     })
   })
 

@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/client'
 import { Dialog } from '../../components/Dialog'
+import { TaskReviewSection } from '../reviews/TaskReviewSection'
+import { useJobRoles, type JobRole } from '../team/useProjectTeam'
 import {
   formatDueDate,
   memberName,
@@ -36,10 +38,12 @@ interface TaskForm {
   priority: TaskPriority
   assigneeId: string
   dueDate: string
+  responsibleJobRoleId: string
 }
 
 interface PanelErrors {
   title?: string
+  role?: string
   form?: string
   stale?: boolean
 }
@@ -52,6 +56,7 @@ function toForm(task?: Task): TaskForm {
     priority: task?.priority ?? 'MEDIUM',
     assigneeId: task?.assigneeId ?? '',
     dueDate: task?.dueDate ?? '',
+    responsibleJobRoleId: task?.responsibleJobRoleId ?? '',
   }
 }
 
@@ -63,6 +68,7 @@ function toValues(form: TaskForm) {
     priority: form.priority,
     assigneeId: form.assigneeId || null,
     dueDate: form.dueDate || null,
+    responsibleJobRoleId: form.responsibleJobRoleId,
   }
 }
 
@@ -76,6 +82,9 @@ function toPatch(task: Task, form: TaskForm): TaskPatch | null {
   if (values.priority !== task.priority) patch.priority = values.priority
   if (values.assigneeId !== task.assigneeId) patch.assigneeId = values.assigneeId
   if (values.dueDate !== task.dueDate) patch.dueDate = values.dueDate
+  if (values.responsibleJobRoleId && values.responsibleJobRoleId !== task.responsibleJobRoleId) {
+    patch.responsibleJobRoleId = values.responsibleJobRoleId
+  }
   return Object.keys(patch).length > 1 ? patch : null
 }
 
@@ -94,6 +103,10 @@ function toPanelErrors(error: unknown): PanelErrors {
   return { form: 'The task wasn’t saved. Check your connection and try again.' }
 }
 
+function isReviewControlled(status: TaskStatus) {
+  return status === 'IN_REVIEW' || status === 'DONE'
+}
+
 function assigneeLabel(assigneeId: string | null, members?: Member[]) {
   if (!assigneeId) return 'Unassigned'
   const member = members?.find((item) => item.userId === assigneeId)
@@ -101,16 +114,21 @@ function assigneeLabel(assigneeId: string | null, members?: Member[]) {
 }
 
 function TaskDetails({
+  orgId,
   task,
   members,
   onClose,
 }: {
+  orgId: string
   task: Task
   members?: Member[]
   onClose(): void
 }) {
+  const jobRoles = useJobRoles(orgId)
+  const jobRoleName = jobRoles.data?.find((role) => role.id === task.responsibleJobRoleId)?.name
   const rows = [
     ['Status', STATUS_LABELS[task.status]],
+    ['Role', task.responsibleJobRoleId ? (jobRoleName ?? 'Loading') : 'No role'],
     ['Priority', PRIORITY_LABELS[task.priority]],
     ['Assignee', assigneeLabel(task.assigneeId, members)],
     ['Due date', task.dueDate ? formatDueDate(task.dueDate) : 'No due date'],
@@ -130,6 +148,7 @@ function TaskDetails({
           </div>
         ))}
       </dl>
+      {task.responsibleJobRoleId && <TaskReviewSection orgId={orgId} task={task} readOnly />}
       <div className="mt-6 flex justify-end">
         <button type="button" className={cancelButton} onClick={onClose}>
           Close
@@ -205,7 +224,7 @@ interface TaskPanelProps {
 
 export function TaskPanel({ task, readOnly, ...props }: TaskPanelProps) {
   if (readOnly && task) {
-    return <TaskDetails task={task} members={props.members} onClose={props.onClose} />
+    return <TaskDetails orgId={props.orgId} task={task} members={props.members} onClose={props.onClose} />
   }
   return <TaskEditor task={task} {...props} />
 }
@@ -220,6 +239,7 @@ function TaskEditor({
   const createTask = useCreateTask(orgId, projectId)
   const updateTask = useUpdateTask(orgId, projectId)
   const reloadTask = useReloadTask(orgId)
+  const jobRoles = useJobRoles(orgId)
   const [baseline, setBaseline] = useState(task)
   const [form, setForm] = useState(() => toForm(task))
   const [errors, setErrors] = useState<PanelErrors>({})
@@ -227,14 +247,29 @@ function TaskEditor({
   const saving = createTask.isPending || updateTask.isPending
   const unknownAssignee =
     form.assigneeId && !members?.some((member) => member.userId === form.assigneeId)
+  const hasSavedRole = Boolean(baseline?.responsibleJobRoleId)
+  const locked = hasSavedRole && baseline?.status === 'DONE'
+  const statusLocked = hasSavedRole && Boolean(baseline && isReviewControlled(baseline.status))
+  const roleLocked = baseline?.status === 'IN_REVIEW' || locked
+  const usesReview = !baseline || Boolean(form.responsibleJobRoleId)
+  const statusOptions = TASK_STATUSES.filter(
+    (status) => !usesReview || !isReviewControlled(status) || status === baseline?.status,
+  )
+  const roleOptions: JobRole[] = (jobRoles.data ?? []).filter(
+    (role) => role.active || role.id === form.responsibleJobRoleId,
+  )
+  const dirty = Boolean(baseline && toPatch(baseline, form))
 
   const setField = <K extends keyof TaskForm>(field: K, value: TaskForm[K]) =>
     setForm((current) => ({ ...current, [field]: value }))
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!form.title.trim()) {
-      setErrors({ title: 'Enter a task title.' })
+    const nextErrors: PanelErrors = {}
+    if (!form.title.trim()) nextErrors.title = 'Enter a task title.'
+    if (!baseline && !form.responsibleJobRoleId) nextErrors.role = 'Choose a responsible role.'
+    if (nextErrors.title || nextErrors.role) {
+      setErrors(nextErrors)
       return
     }
     setErrors({})
@@ -249,6 +284,25 @@ function TaskEditor({
     } catch (error) {
       setErrors(toPanelErrors(error))
     }
+  }
+
+  function applyTask(task: Task) {
+    setBaseline(task)
+    setForm(toForm(task))
+    setErrors({})
+  }
+
+  function changeRole(jobRoleId: string) {
+    setForm((current) => ({
+      ...current,
+      responsibleJobRoleId: jobRoleId,
+      // A task with a role reaches review and done only through the review flow.
+      status:
+        jobRoleId && isReviewControlled(current.status) && current.status !== baseline?.status
+          ? (baseline?.status ?? 'BACKLOG')
+          : current.status,
+    }))
+    setErrors((current) => ({ ...current, role: undefined }))
   }
 
   async function reload() {
@@ -271,6 +325,7 @@ function TaskEditor({
     <>
       <Dialog title={task ? 'Edit task' : 'New task'} placement="side" onClose={onClose}>
         <form className="mt-5 flex flex-col gap-4" noValidate onSubmit={handleSubmit}>
+          <fieldset disabled={locked} className="contents">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="task-title" className={labelClass}>Title</label>
             <input
@@ -304,16 +359,42 @@ function TaskEditor({
             />
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="task-role" className={labelClass}>Responsible role</label>
+            <select
+              id="task-role"
+              className={fieldClass}
+              disabled={roleLocked || !jobRoles.data}
+              value={form.responsibleJobRoleId}
+              aria-invalid={errors.role ? true : undefined}
+              aria-describedby={errors.role ? 'task-role-error' : undefined}
+              onChange={(event) => changeRole(event.target.value)}
+            >
+              {!hasSavedRole && <option value="">{baseline ? 'No role' : 'Choose a role'}</option>}
+              {roleOptions.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.active ? role.name : `${role.name} (inactive)`}
+                </option>
+              ))}
+            </select>
+            {errors.role && (
+              <p id="task-role-error" className="text-sm text-error-text">
+                {errors.role}
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="task-status" className={labelClass}>Status</label>
               <select
                 id="task-status"
                 className={fieldClass}
+                disabled={statusLocked}
                 value={form.status}
                 onChange={(event) => setField('status', event.target.value as TaskStatus)}
               >
-                {TASK_STATUSES.map((item) => (
+                {statusOptions.map((item) => (
                   <option key={item} value={item}>{STATUS_LABELS[item]}</option>
                 ))}
               </select>
@@ -361,6 +442,8 @@ function TaskEditor({
             </div>
           </div>
 
+          </fieldset>
+
           {errors.form && (
             <div role="alert" className="rounded-md bg-error-tint p-3 text-sm text-error-text">
               <p>{errors.form}</p>
@@ -393,12 +476,23 @@ function TaskEditor({
               <button type="button" className={cancelButton} onClick={onClose}>
                 Cancel
               </button>
-              <button type="submit" disabled={saving} className={primaryButton}>
-                {task ? 'Save changes' : 'Create task'}
-              </button>
+              {!locked && (
+                <button type="submit" disabled={saving} className={primaryButton}>
+                  {task ? 'Save changes' : 'Create task'}
+                </button>
+              )}
             </div>
           </div>
         </form>
+        {baseline?.responsibleJobRoleId && (
+          <TaskReviewSection
+            orgId={orgId}
+            task={baseline}
+            dirty={dirty}
+            onTaskChanged={applyTask}
+            onReload={reload}
+          />
+        )}
       </Dialog>
       {confirmingDelete && baseline && (
         <DeleteDialog

@@ -104,17 +104,18 @@ function useRefreshTasks(orgId: string, projectId: string) {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: taskKeys.all(orgId, projectId) }),
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(orgId, projectId) }),
+      queryClient.invalidateQueries({ queryKey: ['reviews', orgId] }),
+      queryClient.invalidateQueries({ queryKey: ['task-reviews', orgId] }),
     ])
 }
 
 export function useCreateTask(orgId: string, projectId: string) {
   const onSettled = useRefreshTasks(orgId, projectId)
   return useMutation({
-    // Task 11 adds the required job role field to the form.
-    mutationFn: async (body: Omit<TaskCreate, 'responsibleJobRoleId'>) => {
+    mutationFn: async (body: TaskCreate) => {
       const { data } = await api.POST(
         '/organizations/{orgId}/projects/{projectId}/tasks',
-        { params: { path: { orgId, projectId } }, body: body as TaskCreate },
+        { params: { path: { orgId, projectId } }, body },
       )
       return data!
     },

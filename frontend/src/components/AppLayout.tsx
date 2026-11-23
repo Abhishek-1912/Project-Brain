@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
 import { OrganizationSwitcher } from '../features/organizations/OrganizationSwitcher'
+import { useMyReviews } from '../features/reviews/useReviews'
 import {
   CurrentOrgContext,
   useCurrentOrg,
@@ -21,9 +22,19 @@ const ROLE_LABELS: Record<Role, string> = {
 function OrganizationNav() {
   const { org, can } = useCurrentOrg()
   const { pathname } = useLocation()
+  const reviews = useMyReviews(org.id, 0, 1)
+  const reviewCount = reviews.data?.totalItems ?? 0
+  const reviewsPath = `/orgs/${org.id}/reviews`
   const teamPath = `/orgs/${org.id}/team`
   const auditPath = `/orgs/${org.id}/audit`
-  const section = pathname === auditPath ? 'audit' : pathname === teamPath ? 'team' : 'projects'
+  const section =
+    pathname === auditPath
+      ? 'audit'
+      : pathname === teamPath
+        ? 'team'
+        : pathname === reviewsPath
+          ? 'reviews'
+          : 'projects'
   const itemProps = (name: string) => ({
     'aria-current': section === name ? ('page' as const) : undefined,
     className: `rounded-md px-2 py-1.5 text-sm ${
@@ -37,6 +48,20 @@ function OrganizationNav() {
     <nav aria-label="Main" className="flex flex-row flex-wrap gap-1 md:flex-col">
       <Link to={`/orgs/${org.id}`} {...itemProps('projects')}>
         Projects
+      </Link>
+      <Link
+        to={reviewsPath}
+        aria-label={reviewCount > 0 ? `My reviews, ${reviewCount} waiting` : 'My reviews'}
+        {...itemProps('reviews')}
+      >
+        <span className="flex items-center justify-between gap-2">
+          My reviews
+          {reviewCount > 0 && (
+            <span className="rounded-full bg-primary px-1.5 text-xs font-bold text-on-primary">
+              {reviewCount}
+            </span>
+          )}
+        </span>
       </Link>
       <Link to={teamPath} {...itemProps('team')}>
         Team
