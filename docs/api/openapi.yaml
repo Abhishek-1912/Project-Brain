@@ -134,6 +134,43 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Organizations]
+      operationId: updateMemberRole
+      summary: Change a member's access role (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemberPatch' }
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Organizations]
+      operationId: removeMember
+      summary: Remove a member and keep their history (owner only)
+      responses:
+        '204':
+          description: Member removed
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /organizations/{orgId}/invites:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -674,12 +711,20 @@ components:
 
     Member:
       type: object
-      required: [userId, email, displayName, role]
+      required: [userId, email, displayName, role, version]
       properties:
         userId: { type: string, format: uuid }
         email: { type: string, format: email }
         displayName: { type: string }
         role: { $ref: '#/components/schemas/Role' }
+        version: { type: integer, format: int64 }
+    MemberPatch:
+      type: object
+      additionalProperties: false
+      required: [role, version]
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        version: { type: integer, format: int64 }
 
     InviteRole:
       type: string

@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
 import com.projectbrain.identity.api.CurrentUserProvider;
+import com.projectbrain.organization.api.MemberRemovalListener;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
 import com.projectbrain.organization.api.Role;
@@ -28,7 +29,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-class ProjectTeamService implements ProjectTeamLookup {
+class ProjectTeamService implements ProjectTeamLookup, MemberRemovalListener {
 
 	private static final String ENTITY_TYPE = "PROJECT";
 
@@ -72,6 +73,15 @@ class ProjectTeamService implements ProjectTeamLookup {
 			.query(UUID.class)
 			.list());
 		return ApproverPolicy.resolve(holders, owners(orgId), submitterId, allowSelfApproval);
+	}
+
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void onMemberRemoved(UUID orgId, UUID userId) {
+		jdbc.sql("DELETE FROM brain.project_job_roles WHERE organization_id = :orgId AND user_id = :userId")
+			.param("orgId", orgId)
+			.param("userId", userId)
+			.update();
 	}
 
 	ProjectTeam get(UUID orgId, UUID projectId) {
