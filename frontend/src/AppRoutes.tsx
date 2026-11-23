@@ -14,6 +14,8 @@ import { AuditLogPage } from './features/audit/AuditLogPage'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
 import { ProjectListPage } from './features/projects/ProjectListPage'
+import { RequirementDetailPage } from './features/requirements/RequirementDetailPage'
+import { RequirementListPage } from './features/requirements/RequirementListPage'
 import { MyReviewsPage } from './features/reviews/MyReviewsPage'
 import { TaskListPage } from './features/tasks/TaskListPage'
 import { InviteAcceptPage } from './features/team/InviteAcceptPage'
@@ -105,6 +107,8 @@ export function AppRoutes() {
           <Route index element={<ProjectListPage />} />
           <Route path="projects/:projectId" element={<TaskListPage />} />
           <Route path="projects/:projectId/team" element={<ProjectTeamPage />} />
+          <Route path="projects/:projectId/requirements" element={<RequirementListPage />} />
+          <Route path="projects/:projectId/requirements/:documentId" element={<RequirementDetailPage />} />
           <Route path="reviews" element={<MyReviewsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="audit" element={<AuditLogPage />} />

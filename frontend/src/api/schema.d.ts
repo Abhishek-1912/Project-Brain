@@ -524,6 +524,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{orgId}/projects/{projectId}/requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** List a project's requirement documents */
+        get: operations["listRequirementDocuments"];
+        put?: never;
+        /** Upload a dummy PRD (owner or admin) */
+        post: operations["uploadRequirementDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/requirements/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /** Get a requirement document without its text */
+        get: operations["getRequirementDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/requirements/{documentId}/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an AI analysis run (owner, admin, or manager) */
+        post: operations["analyzeRequirementDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/requirements/{documentId}/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /** Get the latest analysis, its questions, and the latest run */
+        get: operations["getRequirementAnalysis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/ai-runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                runId: string;
+            };
+            cookie?: never;
+        };
+        /** Get an AI run's status and usage */
+        get: operations["getAiRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/clarifications/{questionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Answer a question or mark it not needed (owner, admin, or requirements approver) */
+        patch: operations["updateClarification"];
+        trace?: never;
+    };
+    "/organizations/{orgId}/requirements/{documentId}/stories/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an AI story generation run (owner or admin) */
+        post: operations["generateStories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/requirements/{documentId}/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /** List a document's stories in generated order */
+        get: operations["listStories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/stories/{storyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Replace a story's fields; a decided story returns to draft */
+        patch: operations["updateStory"];
+        trace?: never;
+    };
+    "/organizations/{orgId}/stories/{storyId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a draft story (eligible requirements approver) */
+        post: operations["approveStory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/stories/{storyId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a draft story with a comment (eligible requirements approver) */
+        post: operations["rejectStory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/requirements/{documentId}/create-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Convert approved stories into backlog tasks; repeating creates no duplicates */
+        post: operations["createTasksFromStories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{orgId}/audit-events": {
         parameters: {
             query?: never;
@@ -818,6 +1078,168 @@ export interface components {
             approvalBasis: components["schemas"]["ApprovalBasis"];
             selfApproval: boolean;
         };
+        AiRunAccepted: {
+            /** Format: uuid */
+            runId: string;
+        };
+        AiRun: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            documentId: string;
+            /** @enum {string} */
+            runType: "ANALYSIS" | "STORIES";
+            /** @enum {string} */
+            status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+            provider: string | null;
+            model: string | null;
+            promptVersion: string | null;
+            inputTokens: number;
+            outputTokens: number;
+            /** @enum {string} */
+            billingTier: "FREE" | "PAID";
+            costUsd: number;
+            errorCode: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            finishedAt: string | null;
+        };
+        RequirementAnalysis: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            result: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ClarificationQuestion: {
+            /** Format: uuid */
+            id: string;
+            position: number;
+            question: string;
+            reason: string;
+            /** @enum {string} */
+            status: "OPEN" | "ANSWERED" | "DISMISSED";
+            answer: string | null;
+            /** Format: int64 */
+            version: number;
+        };
+        ClarificationUpdate: {
+            /** @enum {string} */
+            status: "ANSWERED" | "DISMISSED";
+            answer?: string | null;
+            /** Format: int64 */
+            version: number;
+        };
+        StorySourceQuote: {
+            quote: string;
+            verified: boolean;
+        };
+        StoryDraft: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            documentId: string;
+            /** Format: uuid */
+            analysisId: string;
+            title: string;
+            asA: string;
+            iWant: string;
+            soThat: string;
+            acceptanceCriteria: string[];
+            /** @enum {string} */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+            /** Format: uuid */
+            jobRoleId: string | null;
+            sourceQuotes: components["schemas"]["StorySourceQuote"][];
+            /** @enum {string} */
+            status: "DRAFT" | "APPROVED" | "REJECTED" | "CONVERTED";
+            /** Format: uuid */
+            taskId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        StoryDraftPage: {
+            items: components["schemas"]["StoryDraft"][];
+            page: number;
+            size: number;
+            /** Format: int64 */
+            totalItems: number;
+        };
+        StoryUpdate: {
+            title: string;
+            asA: string;
+            iWant: string;
+            soThat: string;
+            acceptanceCriteria: string[];
+            /** @enum {string} */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+            /** Format: uuid */
+            jobRoleId?: string | null;
+            /** Format: int64 */
+            version: number;
+        };
+        StoryApproval: {
+            /** Format: int64 */
+            version: number;
+        };
+        StoryRejection: {
+            /** Format: int64 */
+            version: number;
+            comment: string;
+        };
+        CreateTasksResult: {
+            created: {
+                /** Format: uuid */
+                storyId: string;
+                /** Format: uuid */
+                taskId: string;
+            }[];
+        };
+        RequirementAnalysisState: {
+            analysis: components["schemas"]["RequirementAnalysis"] | null;
+            questions: components["schemas"]["ClarificationQuestion"][];
+            latestRun: components["schemas"]["AiRun"] | null;
+        };
+        RequirementDocument: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            organizationId: string;
+            /** Format: uuid */
+            projectId: string;
+            name: string;
+            mediaType: string;
+            sizeBytes: number;
+            characters: number;
+            /** Format: uuid */
+            approverJobRoleId: string | null;
+            /** Format: uuid */
+            uploadedBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RequirementUpload: {
+            /** Format: binary */
+            file: string;
+            /** @description Must be true. Phase 2 accepts dummy documents only. */
+            dummyDataConfirmed: boolean;
+            /** Format: uuid */
+            approverJobRoleId?: string;
+        };
         AuditEvent: {
             /** Format: uuid */
             id: string;
@@ -855,6 +1277,9 @@ export interface components {
         };
         ReviewQueuePage: components["schemas"]["PageMeta"] & {
             items: components["schemas"]["ReviewQueueItem"][];
+        };
+        RequirementDocumentPage: components["schemas"]["PageMeta"] & {
+            items: components["schemas"]["RequirementDocument"][];
         };
         JobRolePage: components["schemas"]["PageMeta"] & {
             items: components["schemas"]["JobRole"][];
@@ -941,6 +1366,8 @@ export interface components {
     parameters: {
         /** @description Organization ID */
         OrgId: string;
+        /** @description Requirement document ID */
+        DocumentId: string;
         /** @description User ID */
         UserId: string;
         /** @description Job role ID */
@@ -2052,6 +2479,443 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listRequirementDocuments: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requirement documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementDocumentPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    uploadRequirementDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["RequirementUpload"];
+            };
+        };
+        responses: {
+            /** @description Document uploaded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Upload is too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Unprocessable"];
+            /** @description AI service is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getRequirementDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requirement document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementDocument"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    analyzeRequirementDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Analysis run accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRunAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Too many AI runs are waiting */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getRequirementAnalysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest analysis state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementAnalysisState"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAiRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRun"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateClarification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClarificationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated question */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClarificationQuestion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    generateStories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Story generation run accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRunAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Too many AI runs are waiting */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listStories: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryDraftPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    updateStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated story */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    approveStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryApproval"];
+            };
+        };
+        responses: {
+            /** @description Approved story */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    rejectStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryRejection"];
+            };
+        };
+        responses: {
+            /** @description Rejected story */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryDraft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    createTasksFromStories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Requirement document ID */
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tasks created by this request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateTasksResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
         };
     };
