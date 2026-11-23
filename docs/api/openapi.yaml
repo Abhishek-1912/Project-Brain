@@ -24,6 +24,8 @@ tags:
     description: Organization projects
   - name: Tasks
     description: Project tasks
+  - name: Requirements
+    description: Requirement documents and AI analysis
   - name: Audit
     description: Audit events
 
@@ -748,6 +750,75 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/projects/{projectId}/requirements:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Requirements]
+      operationId: listRequirementDocuments
+      summary: List a project's requirement documents
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Requirement documents
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDocumentPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      tags: [Requirements]
+      operationId: uploadRequirementDocument
+      summary: Upload a dummy PRD (owner or admin)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/RequirementUpload' }
+      responses:
+        '201':
+          description: Document uploaded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDocument' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413':
+          description: Upload is too large
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503':
+          description: AI service is unavailable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /organizations/{orgId}/requirements/{documentId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags: [Requirements]
+      operationId: getRequirementDocument
+      summary: Get a requirement document without its text
+      responses:
+        '200':
+          description: Requirement document
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -782,6 +853,12 @@ components:
       in: path
       required: true
       description: Organization ID
+      schema: { type: string, format: uuid }
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      description: Requirement document ID
       schema: { type: string, format: uuid }
     UserId:
       name: userId
@@ -1167,6 +1244,32 @@ components:
         approvalBasis: { $ref: '#/components/schemas/ApprovalBasis' }
         selfApproval: { type: boolean }
 
+    RequirementDocument:
+      type: object
+      required: [id, organizationId, projectId, name, mediaType, sizeBytes, characters, approverJobRoleId, uploadedBy, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        name: { type: string }
+        mediaType: { type: string }
+        sizeBytes: { type: integer }
+        characters: { type: integer }
+        approverJobRoleId: { type: [string, 'null'], format: uuid }
+        uploadedBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    RequirementUpload:
+      type: object
+      required: [file, dummyDataConfirmed]
+      properties:
+        file: { type: string, format: binary }
+        dummyDataConfirmed:
+          type: boolean
+          description: Must be true. Phase 2 accepts dummy documents only.
+        approverJobRoleId: { type: string, format: uuid }
+
     AuditEvent:
       type: object
       required: [id, organizationId, actorId, action, entityType, entityId, metadata, createdAt]
@@ -1234,6 +1337,15 @@ components:
             items:
               type: array
               items: { $ref: '#/components/schemas/ReviewQueueItem' }
+    RequirementDocumentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/RequirementDocument' }
     JobRolePage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'

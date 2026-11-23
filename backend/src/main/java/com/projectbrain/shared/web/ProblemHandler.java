@@ -53,6 +53,11 @@ public class ProblemHandler extends ResponseEntityExceptionHandler {
 		return problem(422, ex.getMessage());
 	}
 
+	@ExceptionHandler(ServiceUnavailableException.class)
+	ResponseEntity<Object> serviceUnavailable(ServiceUnavailableException ex) {
+		return problem(503, ex.getMessage());
+	}
+
 	/** Handled here because the stateless error dispatch would otherwise turn a 500 into a 401. */
 	@ExceptionHandler(Exception.class)
 	ResponseEntity<Object> unexpected(Exception ex) {
