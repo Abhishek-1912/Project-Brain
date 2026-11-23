@@ -134,6 +134,73 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/job-roles:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+    get:
+      tags: [Organizations]
+      operationId: listJobRoles
+      summary: List the organization's job roles, including inactive roles
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Job roles
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRolePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      tags: [Organizations]
+      operationId: createJobRole
+      summary: Create a job role (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobRoleCreate' }
+      responses:
+        '201':
+          description: Job role created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/job-roles/{jobRoleId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/JobRoleId'
+    patch:
+      tags: [Organizations]
+      operationId: updateJobRole
+      summary: Rename, deactivate or reactivate a job role (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobRolePatch' }
+      responses:
+        '200':
+          description: Job role updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /organizations/{orgId}/projects:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -350,6 +417,12 @@ components:
       required: true
       description: Organization ID
       schema: { type: string, format: uuid }
+    JobRoleId:
+      name: jobRoleId
+      in: path
+      required: true
+      description: Job role ID
+      schema: { type: string, format: uuid }
     ProjectId:
       name: projectId
       in: path
@@ -469,6 +542,32 @@ components:
         displayName: { type: string }
         role: { $ref: '#/components/schemas/Role' }
 
+    JobRole:
+      type: object
+      required: [id, organizationId, name, active, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        name: { type: string }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    JobRoleCreate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+    JobRolePatch:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        active: { type: boolean }
+        version: { type: integer, format: int64 }
+
     Project:
       type: object
       required: [id, organizationId, name, description, status, createdBy, createdAt, updatedAt, version]
@@ -584,6 +683,15 @@ components:
             items:
               type: array
               items: { $ref: '#/components/schemas/Member' }
+    JobRolePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/JobRole' }
     ProjectPage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'

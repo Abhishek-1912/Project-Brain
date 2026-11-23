@@ -6,7 +6,8 @@ import java.util.Set;
 public enum Role {
 
 	OWNER(EnumSet.allOf(Permission.class)),
-	ADMIN(EnumSet.of(Permission.VIEW, Permission.EDIT_TASKS, Permission.MANAGE_PROJECTS, Permission.VIEW_AUDIT)),
+	ADMIN(EnumSet.of(Permission.VIEW, Permission.EDIT_TASKS, Permission.MANAGE_PROJECTS, Permission.VIEW_AUDIT,
+			Permission.INVITE_MEMBERS)),
 	MEMBER(EnumSet.of(Permission.VIEW, Permission.EDIT_TASKS)),
 	VIEWER(EnumSet.of(Permission.VIEW));
 

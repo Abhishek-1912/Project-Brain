@@ -9,6 +9,7 @@ import com.projectbrain.audit.api.AuditLog;
 import com.projectbrain.identity.api.CurrentUser;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.identity.api.ProfileProvisioner;
+import com.projectbrain.organization.api.OrganizationInitializer;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
 import com.projectbrain.organization.api.Role;
@@ -47,8 +48,11 @@ class OrganizationService {
 
 	private final AuditLog auditLog;
 
+	private final List<OrganizationInitializer> initializers;
+
 	OrganizationService(OrgTx orgTx, JdbcClient jdbc, CurrentUserProvider currentUser, ProfileProvisioner profiles,
-			AuditLog auditLog) {
+			AuditLog auditLog, List<OrganizationInitializer> initializers) {
+		this.initializers = initializers;
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.currentUser = currentUser;
@@ -103,6 +107,7 @@ class OrganizationService {
 				.param("orgId", orgId)
 				.param("userId", user.id())
 				.update();
+			initializers.forEach(initializer -> initializer.initialize(orgId));
 			auditLog.record(orgId, "ORGANIZATION_CREATED", ENTITY_TYPE, orgId, Map.of("name", name, "slug", slug));
 			return load(orgId, user.id());
 		});
