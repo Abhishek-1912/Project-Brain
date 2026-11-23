@@ -36,6 +36,19 @@ public class OrgTx {
 		});
 	}
 
+	/** Exposes only the invite matching this hash, for a user who is not yet a member. */
+	public <T> T withInvite(String tokenHash, Supplier<T> work) {
+		CurrentUser user = currentUser.get();
+		return transactions.execute(status -> {
+			setContext(user.id(), "");
+			jdbc.sql("SELECT set_config('app.current_invite_hash', :tokenHash, true)")
+				.param("tokenHash", tokenHash)
+				.query(String.class)
+				.single();
+			return work.get();
+		});
+	}
+
 	public <T> T inOrg(UUID orgId, Permission required, Supplier<T> work) {
 		CurrentUser user = currentUser.get();
 		return transactions.execute(status -> {
