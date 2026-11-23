@@ -316,6 +316,11 @@ class RequirementDocumentApiTest extends TeamApiTestBase {
 			throw new UnsupportedOperationException();
 		}
 
+		@Override
+		public GeneratedResult generateStories(StoriesRequest request) {
+			throw new UnsupportedOperationException();
+		}
+
 	}
 
 	@TestConfiguration

@@ -100,6 +100,21 @@ public class OrgTx {
 			.single();
 	}
 
+	/** Must run inside inOrg for the same organization, because row-level security limits what it can see. */
+	public boolean hasPermission(UUID orgId, UUID userId, Permission permission) {
+		return jdbc.sql("""
+				SELECT role FROM brain.organization_members
+				WHERE organization_id = :orgId AND user_id = :userId
+				""")
+			.param("orgId", orgId)
+			.param("userId", userId)
+			.query(String.class)
+			.optional()
+			.map(Role::valueOf)
+			.filter(role -> role.allows(permission))
+			.isPresent();
+	}
+
 	private void setContext(UUID userId, String orgId) {
 		jdbc.sql("SELECT set_config('app.current_user_id', :userId, true), set_config('app.current_org_id', :orgId, true)")
 			.param("userId", userId.toString())

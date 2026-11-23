@@ -95,6 +95,15 @@ class JobRoleService implements JobRoleLookup, OrganizationInitializer {
 			.optional();
 	}
 
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY)
+	public List<String> activeNames(UUID orgId) {
+		return jdbc.sql("SELECT name FROM brain.job_roles WHERE organization_id = :orgId AND active ORDER BY lower(name)")
+			.param("orgId", orgId)
+			.query(String.class)
+			.list();
+	}
+
 	PageResponse<JobRole> list(UUID orgId, PageParams paging) {
 		return orgTx.inOrg(orgId, Permission.VIEW, () -> {
 			long total = jdbc.sql("SELECT count(*) FROM brain.job_roles WHERE organization_id = :orgId")

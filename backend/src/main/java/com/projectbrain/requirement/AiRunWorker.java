@@ -2,6 +2,9 @@ package com.projectbrain.requirement;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.projectbrain.audit.api.AuditLog;
 import com.projectbrain.organization.api.OrgTx;
@@ -9,8 +12,6 @@ import com.projectbrain.organization.api.Permission;
 import com.projectbrain.project.api.ProjectLookup;
 import com.projectbrain.project.api.ProjectStatus;
 import com.projectbrain.requirement.AiServiceClient.GeneratedResult;
-import com.projectbrain.requirement.AnalysisService.AnalysisInput;
-import com.projectbrain.requirement.AnalysisService.InvalidAnalysisException;
 import com.projectbrain.shared.web.ConflictException;
 import com.projectbrain.shared.web.ForbiddenException;
 import com.projectbrain.shared.web.NotFoundException;
@@ -37,6 +38,8 @@ class AiRunWorker {
 
 	private final AnalysisService analyses;
 
+	private final StoryService stories;
+
 	private final AiServiceClient ai;
 
 	private final ProjectLookup projects;
@@ -45,11 +48,12 @@ class AiRunWorker {
 
 	private final ThreadPoolTaskExecutor executor;
 
-	AiRunWorker(OrgTx orgTx, AiRunStore store, AnalysisService analyses, AiServiceClient ai, ProjectLookup projects,
-			AuditLog auditLog) {
+	AiRunWorker(OrgTx orgTx, AiRunStore store, AnalysisService analyses, StoryService stories, AiServiceClient ai,
+			ProjectLookup projects, AuditLog auditLog) {
 		this.orgTx = orgTx;
 		this.store = store;
 		this.analyses = analyses;
+		this.stories = stories;
 		this.ai = ai;
 		this.projects = projects;
 		this.auditLog = auditLog;
@@ -80,25 +84,18 @@ class AiRunWorker {
 
 	private void run(Job job) {
 		try {
-			AnalysisInput input = orgTx.inOrgAs(job.actor(), job.orgId(), Permission.MANAGE_PROJECTS, () -> {
-				requireWritable(job);
-				if (!store.markRunning(job.orgId(), job.runId())) {
-					throw new IllegalStateException("Run is no longer queued");
-				}
-				return analyses.loadInput(job.orgId(), job.documentId());
-			});
-			GeneratedResult generated = ai.analyze(input.text(), input.answers());
-			orgTx.inOrgAs(job.actor(), job.orgId(), Permission.MANAGE_PROJECTS, () -> {
-				requireWritable(job);
-				analyses.save(job.orgId(), job.documentId(), job.runId(), job.actor(), generated.result());
-				if (!store.succeed(job.orgId(), job.runId(), generated.usage())) {
-					throw new IllegalStateException("Run is no longer running");
-				}
-				auditLog.recordAs(job.actor(), job.orgId(), "AI_RUN_SUCCEEDED", "AI_RUN", job.runId(),
-						Map.of("runType", "ANALYSIS", "inputTokens", generated.usage().inputTokens(), "outputTokens",
-								generated.usage().outputTokens()));
-				return null;
-			});
+			if ("STORIES".equals(job.runType())) {
+				execute(job, () -> stories.loadInput(job.orgId(), job.documentId()),
+						input -> ai.generateStories(input.request()),
+						(input, generated) -> stories.save(job.orgId(), job.projectId(), job.documentId(),
+								input.analysisId(), job.actor(), generated.result()));
+			}
+			else {
+				execute(job, () -> analyses.loadInput(job.orgId(), job.documentId()),
+						input -> ai.analyze(input.text(), input.answers()),
+						(input, generated) -> analyses.save(job.orgId(), job.documentId(), job.runId(), job.actor(),
+								generated.result()));
+			}
 		}
 		catch (RuntimeException ex) {
 			String code = errorCode(ex);
@@ -107,6 +104,29 @@ class AiRunWorker {
 			}
 			fail(job, code);
 		}
+	}
+
+	private <I> void execute(Job job, Supplier<I> load, Function<I, GeneratedResult> call,
+			BiConsumer<I, GeneratedResult> save) {
+		I input = orgTx.inOrgAs(job.actor(), job.orgId(), Permission.MANAGE_PROJECTS, () -> {
+			requireWritable(job);
+			if (!store.markRunning(job.orgId(), job.runId())) {
+				throw new IllegalStateException("Run is no longer queued");
+			}
+			return load.get();
+		});
+		GeneratedResult generated = call.apply(input);
+		orgTx.inOrgAs(job.actor(), job.orgId(), Permission.MANAGE_PROJECTS, () -> {
+			requireWritable(job);
+			save.accept(input, generated);
+			if (!store.succeed(job.orgId(), job.runId(), generated.usage())) {
+				throw new IllegalStateException("Run is no longer running");
+			}
+			auditLog.recordAs(job.actor(), job.orgId(), "AI_RUN_SUCCEEDED", "AI_RUN", job.runId(),
+					Map.of("runType", job.runType(), "inputTokens", generated.usage().inputTokens(), "outputTokens",
+							generated.usage().outputTokens()));
+			return null;
+		});
 	}
 
 	private void requireWritable(Job job) {
@@ -120,7 +140,7 @@ class AiRunWorker {
 			orgTx.withOrgContext(job.actor(), job.orgId(), () -> {
 				if (store.fail(job.orgId(), job.runId(), code)) {
 					auditLog.recordAs(job.actor(), job.orgId(), "AI_RUN_FAILED", "AI_RUN", job.runId(),
-							Map.of("runType", "ANALYSIS", "errorCode", code));
+							Map.of("runType", job.runType(), "errorCode", code));
 				}
 				return null;
 			});
@@ -134,7 +154,7 @@ class AiRunWorker {
 		if (ex instanceof AiServiceException service) {
 			return service.code();
 		}
-		if (ex instanceof InvalidAnalysisException) {
+		if (ex instanceof InvalidAiOutputException) {
 			return "INVALID_OUTPUT";
 		}
 		if (ex instanceof ForbiddenException || ex instanceof NotFoundException) {
@@ -146,7 +166,7 @@ class AiRunWorker {
 		return "INTERNAL_ERROR";
 	}
 
-	record Job(UUID runId, UUID orgId, UUID projectId, UUID documentId, UUID actor) {
+	record Job(UUID runId, UUID orgId, UUID projectId, UUID documentId, UUID actor, String runType) {
 	}
 
 }

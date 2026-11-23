@@ -33,8 +33,10 @@ class AiRunService {
 
 	private final AuditLog auditLog;
 
+	private final AnalysisService analyses;
+
 	AiRunService(OrgTx orgTx, JdbcClient jdbc, AiRunStore store, AiRunWorker worker, ProjectLookup projects,
-			CurrentUserProvider currentUser, AuditLog auditLog) {
+			CurrentUserProvider currentUser, AuditLog auditLog, AnalysisService analyses) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.store = store;
@@ -42,9 +44,18 @@ class AiRunService {
 		this.projects = projects;
 		this.currentUser = currentUser;
 		this.auditLog = auditLog;
+		this.analyses = analyses;
 	}
 
 	RunAccepted startAnalysis(UUID orgId, UUID documentId) {
+		return start(orgId, documentId, "ANALYSIS");
+	}
+
+	RunAccepted startStories(UUID orgId, UUID documentId) {
+		return start(orgId, documentId, "STORIES");
+	}
+
+	private RunAccepted start(UUID orgId, UUID documentId, String runType) {
 		UUID actor = currentUser.get().id();
 		UUID runId = UUID.randomUUID();
 		// The worker starts only after this transaction commits, so it can always see the run.
@@ -53,14 +64,17 @@ class AiRunService {
 			if (projects.requireStatus(orgId, project) == ProjectStatus.ARCHIVED) {
 				throw new ConflictException("The project is archived.");
 			}
-			if (!store.insert(runId, orgId, project, documentId, "ANALYSIS", actor)) {
+			if ("STORIES".equals(runType)) {
+				analyses.storyBasis(orgId, documentId);
+			}
+			if (!store.insert(runId, orgId, project, documentId, runType, actor)) {
 				throw new ConflictException("An AI run is already active for this document.");
 			}
 			auditLog.record(orgId, "AI_RUN_STARTED", "AI_RUN", runId,
-					Map.of("runType", "ANALYSIS", "documentId", documentId.toString()));
+					Map.of("runType", runType, "documentId", documentId.toString()));
 			return project;
 		});
-		if (!worker.submit(new AiRunWorker.Job(runId, orgId, projectId, documentId, actor))) {
+		if (!worker.submit(new AiRunWorker.Job(runId, orgId, projectId, documentId, actor, runType))) {
 			throw new ServiceUnavailableException("Too many AI runs are waiting. Try again shortly.");
 		}
 		return new RunAccepted(runId);

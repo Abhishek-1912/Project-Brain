@@ -38,6 +38,14 @@ class HttpAiServiceClientTest {
 			exchange.getResponseBody().write(bytes);
 			exchange.close();
 		});
+		server.createContext("/v1/stories", exchange -> {
+			body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+			byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+			exchange.getResponseHeaders().add("Content-Type", "application/json");
+			exchange.sendResponseHeaders(status, bytes.length);
+			exchange.getResponseBody().write(bytes);
+			exchange.close();
+		});
 		server.createContext("/v1/extract", exchange -> {
 			authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
 			body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
@@ -132,6 +140,25 @@ class HttpAiServiceClientTest {
 		assertThatThrownBy(() -> client("service-token").analyze("Dummy PRD", java.util.List.of()))
 			.isInstanceOfSatisfying(AiServiceException.class,
 					error -> assertThat(error.code()).isEqualTo("SERVICE_UNAVAILABLE"));
+	}
+
+	@Test
+	void generateStoriesSendsCamelCaseRequest() {
+		response = """
+				{"result":{"stories":[]},
+				 "usage":{"provider":"gemini","model":"m","promptVersion":"stories-v1","inputTokens":7,"outputTokens":3}}
+				""";
+		JsonMapper mapper = JsonMapper.builder().build();
+
+		AiServiceClient.GeneratedResult result = client("service-token").generateStories(new AiServiceClient.StoriesRequest(
+				"Dummy PRD", mapper.readTree("{\"summary\":\"S\"}"), java.util.List.of(), java.util.List.of("Developer"),
+				java.util.List.of("Too vague"), java.util.List.of("Kept")));
+
+		assertThat(result.usage().promptVersion()).isEqualTo("stories-v1");
+		assertThat(body.get()).contains("\"activeJobRoles\":[\"Developer\"]")
+			.contains("\"rejectionComments\":[\"Too vague\"]")
+			.contains("\"keptStoryTitles\":[\"Kept\"]")
+			.contains("\"analysis\":{\"summary\":\"S\"}");
 	}
 
 	private HttpAiServiceClient client(String token) {

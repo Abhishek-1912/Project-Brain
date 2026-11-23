@@ -75,11 +75,20 @@ class HttpAiServiceClient implements AiServiceClient {
 
 	@Override
 	public GeneratedResult analyze(String text, List<ClarificationAnswer> answers) {
+		return generate("/v1/analyze", Map.of("text", text, "answers", answers));
+	}
+
+	@Override
+	public GeneratedResult generateStories(StoriesRequest request) {
+		return generate("/v1/stories", request);
+	}
+
+	private GeneratedResult generate(String path, Object payload) {
 		try {
 			JsonNode body = rest.post()
-				.uri("/v1/analyze")
+				.uri(path)
 				.contentType(MediaType.APPLICATION_JSON)
-				.body(json.writeValueAsBytes(Map.of("text", text, "answers", answers)))
+				.body(json.writeValueAsBytes(payload))
 				.exchange((request, response) -> read(response.getStatusCode().is2xxSuccessful(),
 						response.getBody().readAllBytes()), true);
 			JsonNode usage = body.required("usage");

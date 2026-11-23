@@ -364,6 +364,11 @@ class RequirementAnalysisApiTest extends TeamApiTestBase {
 					new AiUsage("gemini", "gemini-test", "analysis-v1", 100, 25));
 		}
 
+		@Override
+		public GeneratedResult generateStories(StoriesRequest request) {
+			throw new UnsupportedOperationException();
+		}
+
 	}
 
 	@TestConfiguration

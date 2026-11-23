@@ -880,6 +880,107 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /organizations/{orgId}/clarifications/{questionId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: questionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Requirements]
+      operationId: updateClarification
+      summary: Answer a question or mark it not needed (owner, admin, or requirements approver)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClarificationUpdate' }
+      responses:
+        '200':
+          description: Updated question
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClarificationQuestion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/requirements/{documentId}/stories/generate:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags: [Requirements]
+      operationId: generateStories
+      summary: Start an AI story generation run (owner or admin)
+      responses:
+        '202':
+          description: Story generation run accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRunAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: Too many AI runs are waiting
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /organizations/{orgId}/requirements/{documentId}/stories:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags: [Requirements]
+      operationId: listStories
+      summary: List a document's stories in generated order
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Stories
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraftPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/stories/{storyId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Requirements]
+      operationId: updateStory
+      summary: Replace a story's fields; a decided story returns to draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryUpdate' }
+      responses:
+        '200':
+          description: Updated story
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -1347,6 +1448,69 @@ components:
         reason: { type: string }
         status: { type: string, enum: [OPEN, ANSWERED, DISMISSED] }
         answer: { type: string, nullable: true }
+        version: { type: integer, format: int64 }
+    ClarificationUpdate:
+      type: object
+      required: [status, version]
+      properties:
+        status: { type: string, enum: [ANSWERED, DISMISSED] }
+        answer: { type: string, nullable: true, maxLength: 5000 }
+        version: { type: integer, format: int64 }
+    StorySourceQuote:
+      type: object
+      required: [quote, verified]
+      properties:
+        quote: { type: string }
+        verified: { type: boolean }
+    StoryDraft:
+      type: object
+      required: [id, documentId, analysisId, title, asA, iWant, soThat, acceptanceCriteria, priority, sourceQuotes, status, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        analysisId: { type: string, format: uuid }
+        title: { type: string }
+        asA: { type: string }
+        iWant: { type: string }
+        soThat: { type: string }
+        acceptanceCriteria:
+          type: array
+          items: { type: string }
+        priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
+        jobRoleId: { type: string, format: uuid, nullable: true }
+        sourceQuotes:
+          type: array
+          items: { $ref: '#/components/schemas/StorySourceQuote' }
+        status: { type: string, enum: [DRAFT, APPROVED, REJECTED, CONVERTED] }
+        taskId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    StoryDraftPage:
+      type: object
+      required: [items, page, size, totalItems]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/StoryDraft' }
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
+    StoryUpdate:
+      type: object
+      required: [title, asA, iWant, soThat, acceptanceCriteria, priority, version]
+      properties:
+        title: { type: string, maxLength: 200 }
+        asA: { type: string, maxLength: 300 }
+        iWant: { type: string, maxLength: 1000 }
+        soThat: { type: string, maxLength: 1000 }
+        acceptanceCriteria:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, maxLength: 1000 }
+        priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
+        jobRoleId: { type: string, format: uuid, nullable: true }
         version: { type: integer, format: int64 }
     RequirementAnalysisState:
       type: object

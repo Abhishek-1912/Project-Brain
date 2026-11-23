@@ -12,6 +12,7 @@ import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
 import com.projectbrain.requirement.AiRunStore.RunView;
 import com.projectbrain.requirement.AiServiceClient.ClarificationAnswer;
+import com.projectbrain.shared.web.ConflictException;
 import com.projectbrain.shared.web.NotFoundException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -148,7 +149,39 @@ class AnalysisService {
 			.list();
 	}
 
-	private void requireDocument(UUID orgId, UUID documentId) {
+	/** Must run inside an organization transaction. Returns the latest analysis in the AI service's input format. */
+	StoryBasis storyBasis(UUID orgId, UUID documentId) {
+		return jdbc.sql("""
+				SELECT id, result::text AS result FROM brain.requirement_analyses
+				WHERE organization_id = :orgId AND document_id = :documentId
+				ORDER BY analysis_version DESC
+				LIMIT 1
+				""")
+			.param("orgId", orgId)
+			.param("documentId", documentId)
+			.query((row, rowNumber) -> {
+				UUID id = row.getObject("id", UUID.class);
+				return new StoryBasis(id, forAiService(orgId, id, json.readTree(row.getString("result"))));
+			})
+			.optional()
+			.orElseThrow(() -> new ConflictException("Analyze the document before generating stories."));
+	}
+
+	private JsonNode forAiService(UUID orgId, UUID analysisId, JsonNode stored) {
+		ObjectNode payload = (ObjectNode) stored.deepCopy();
+		for (String section : List.of("features", "users", "gaps", "risks")) {
+			for (JsonNode item : payload.get(section)) {
+				((ObjectNode) item).remove("sourceVerified");
+			}
+		}
+		var questions = payload.putArray("questions");
+		for (QuestionView question : questions(orgId, analysisId)) {
+			questions.addObject().put("question", question.question()).put("reason", question.reason());
+		}
+		return payload;
+	}
+
+	void requireDocument(UUID orgId, UUID documentId) {
 		boolean exists = jdbc.sql("""
 				SELECT EXISTS (
 				    SELECT 1 FROM brain.requirement_documents WHERE organization_id = :orgId AND id = :id
@@ -177,30 +210,30 @@ class AnalysisService {
 
 	private static List<JsonNode> validate(JsonNode generated) {
 		if (generated == null || !generated.isObject() || !isText(generated.get("summary"))) {
-			throw new InvalidAnalysisException();
+			throw new InvalidAiOutputException();
 		}
 		List<String> sections = new ArrayList<>(SOURCED_SECTIONS);
 		sections.addAll(OPTIONAL_QUOTE_SECTIONS);
 		for (String section : sections) {
 			JsonNode items = generated.get(section);
 			if (items == null || !items.isArray()) {
-				throw new InvalidAnalysisException();
+				throw new InvalidAiOutputException();
 			}
 			for (JsonNode item : items) {
 				if (!item.isObject() || !isText(item.get("text"))) {
-					throw new InvalidAnalysisException();
+					throw new InvalidAiOutputException();
 				}
 			}
 		}
 		JsonNode questions = generated.get("questions");
 		if (questions == null || !questions.isArray()) {
-			throw new InvalidAnalysisException();
+			throw new InvalidAiOutputException();
 		}
 		List<JsonNode> result = new ArrayList<>();
 		for (JsonNode question : questions) {
 			if (!question.isObject() || !isQuestionText(question.get("question"))
 					|| !isQuestionText(question.get("reason"))) {
-				throw new InvalidAnalysisException();
+				throw new InvalidAiOutputException();
 			}
 			result.add(question);
 		}
@@ -243,15 +276,10 @@ class AnalysisService {
 		return quote != null && quote.isString() ? quote.asString() : null;
 	}
 
-	static class InvalidAnalysisException extends RuntimeException {
-
-		InvalidAnalysisException() {
-			super("INVALID_OUTPUT");
-		}
-
+	record AnalysisInput(String text, List<ClarificationAnswer> answers) {
 	}
 
-	record AnalysisInput(String text, List<ClarificationAnswer> answers) {
+	record StoryBasis(UUID analysisId, JsonNode analysis) {
 	}
 
 	record AnalysisView(UUID id, int version, JsonNode result, OffsetDateTime createdAt) {
