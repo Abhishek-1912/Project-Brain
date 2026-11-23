@@ -1,15 +1,17 @@
 # Project Status
 
-Branch: main
+Branch: phase-2-requirement-intelligence
 Phase 1: Complete
 Phase 1.5: Complete and merged into `main` through PR #2
-Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12
-Current task: Plan Phase 2
+Phase 2: Working model complete on its branch, for dummy data only. Not merged into `main`.
+Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12, Phase 2 Tasks 1 through 10
+Current task: Final whole-branch review of Phase 2
 Blockers: none
 Phase 1 acceptance: On 2026-11-23, 135 backend tests, 83 frontend tests and the production build passed. The developer confirmed the browser flow against Supabase and the running backend.
 Phase 1.5 acceptance: On 2026-11-23, 236 backend tests, 134 frontend tests, the production build and lint passed. A fresh review found no Critical issues, and its Important findings were fixed. The developer confirmed the two-user browser flow against Supabase and the running backend.
-Database: Migration `V3` is applied to Supabase and is included in `main`.
-Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md` and `docs/decisions/0002-team-and-approval-model.md`.
+Phase 2 acceptance: On 2026-11-23, 60 AI service tests, 327 backend tests, 155 frontend tests, the production build and lint passed. The developer confirmed the browser flow with the dummy PRD, Gemini free tier, Supabase and the running services.
+Database: Migration `V4` is applied to Supabase. `V3` is included in `main`; `V4` is only on the Phase 2 branch until it merges.
+Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0002-team-and-approval-model.md` and `docs/decisions/0003-ai-service-boundary.md`.
 
 ## Known gaps
 
@@ -23,6 +25,10 @@ Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md` and `docs/decision
 - The My reviews badge can stay stale after a team change until it refetches, and can briefly show the previous organization's count.
 - Editing a role and another field on an old `DONE` task without a role shows a confusing message.
 - Invites created by a later-removed Admin stay valid until cancelled or expired.
+- Phase 2 is for dummy data only. Real documents need a paid Gemini tier, private file storage, spending limits, retention and deletion rules, and client consent.
+- AI run recovery assumes one backend instance. A second instance starting up would mark the first instance's active runs as failed.
+- Regenerating stories replaces all drafts, including hand-edited drafts, after a confirmation.
+- The AI service has no committed start script yet. It must be started with only `GEMINI_API_KEY`, `AI_SERVICE_TOKEN`, and optional `GEMINI_MODEL`.
 
 ## Development notes
 
