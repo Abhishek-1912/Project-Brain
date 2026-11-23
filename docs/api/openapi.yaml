@@ -280,6 +280,53 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/projects/{projectId}/team:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Projects]
+      operationId: getProjectTeam
+      summary: Get organization members, their job roles on this project, and role coverage
+      responses:
+        '200':
+          description: Project team
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectTeam' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/projects/{projectId}/team/{userId}/job-roles/{jobRoleId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/JobRoleId'
+    put:
+      tags: [Projects]
+      operationId: assignProjectJobRole
+      summary: Give a member a job role on this project (owner or admin)
+      responses:
+        '204':
+          description: Job role assigned
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Projects]
+      operationId: removeProjectJobRole
+      summary: Remove a member's job role on this project (owner or admin)
+      responses:
+        '204':
+          description: Job role removed
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /organizations/{orgId}/projects/{projectId}/tasks:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -416,6 +463,12 @@ components:
       in: path
       required: true
       description: Organization ID
+      schema: { type: string, format: uuid }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: User ID
       schema: { type: string, format: uuid }
     JobRoleId:
       name: jobRoleId
@@ -567,6 +620,41 @@ components:
         name: { type: string, minLength: 1, maxLength: 60 }
         active: { type: boolean }
         version: { type: integer, format: int64 }
+
+    ApprovalBasis:
+      type: string
+      enum: [ROLE_HOLDER, OWNER_FALLBACK]
+    ProjectTeamMember:
+      type: object
+      required: [userId, email, displayName, role, jobRoleIds]
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        jobRoleIds:
+          type: array
+          items: { type: string, format: uuid }
+    ProjectTeamJobRole:
+      type: object
+      required: [id, name, active, approvalBasis]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        active: { type: boolean }
+        approvalBasis:
+          $ref: '#/components/schemas/ApprovalBasis'
+          description: Who approves this role's tasks on this project
+    ProjectTeam:
+      type: object
+      required: [members, jobRoles]
+      properties:
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/ProjectTeamMember' }
+        jobRoles:
+          type: array
+          items: { $ref: '#/components/schemas/ProjectTeamJobRole' }
 
     Project:
       type: object
