@@ -9,6 +9,7 @@ import com.projectbrain.audit.api.AuditLog;
 import com.projectbrain.identity.api.CurrentUser;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.identity.api.ProfileProvisioner;
+import com.projectbrain.organization.api.ApprovalSettings;
 import com.projectbrain.organization.api.OrganizationInitializer;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
@@ -22,7 +23,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
 @Service
-class OrganizationService {
+class OrganizationService implements ApprovalSettings {
 
 	private static final String ENTITY_TYPE = "ORGANIZATION";
 
@@ -58,6 +59,14 @@ class OrganizationService {
 		this.currentUser = currentUser;
 		this.profiles = profiles;
 		this.auditLog = auditLog;
+	}
+
+	@Override
+	public boolean allowsSelfApproval(UUID orgId) {
+		return jdbc.sql("SELECT allow_self_approval FROM brain.organizations WHERE id = :orgId")
+			.param("orgId", orgId)
+			.query(Boolean.class)
+			.single();
 	}
 
 	PageResponse<Organization> list(PageParams paging) {
