@@ -161,6 +161,21 @@ class HttpAiServiceClientTest {
 			.contains("\"analysis\":{\"summary\":\"S\"}");
 	}
 
+	@Test
+	void analyzeErrorCarriesUsageFromFailedAttempts() {
+		status = 502;
+		response = """
+				{"code":"INVALID_OUTPUT",
+				 "usage":{"provider":"gemini","model":"m","promptVersion":"analysis-v1","inputTokens":70,"outputTokens":30}}
+				""";
+
+		assertThatThrownBy(() -> client("service-token").analyze("Dummy PRD", java.util.List.of()))
+			.isInstanceOfSatisfying(AiServiceException.class, error -> {
+				assertThat(error.code()).isEqualTo("INVALID_OUTPUT");
+				assertThat(error.usage()).isEqualTo(new AiServiceClient.AiUsage("gemini", "m", "analysis-v1", 70, 30));
+			});
+	}
+
 	private HttpAiServiceClient client(String token) {
 		return new HttpAiServiceClient("http://127.0.0.1:" + server.getAddress().getPort(), token,
 				JsonMapper.builder().build());

@@ -212,7 +212,8 @@ class StoryService {
 	}
 
 	/** Must run inside an organization transaction, so a bad result leaves the current stories untouched. */
-	void save(UUID orgId, UUID projectId, UUID documentId, UUID analysisId, UUID actor, JsonNode generated) {
+	void save(UUID orgId, UUID projectId, UUID documentId, UUID runId, UUID analysisId, UUID actor,
+			JsonNode generated) {
 		List<JsonNode> stories = validateGenerated(generated);
 		String documentText = jdbc.sql("""
 				SELECT extracted_text FROM brain.requirement_documents WHERE organization_id = :orgId AND id = :id
@@ -221,19 +222,36 @@ class StoryService {
 			.param("id", documentId)
 			.query(String.class)
 			.single();
+		// A draft someone saved after this run started is newer than the AI's work, so it stays.
 		jdbc.sql("""
 				DELETE FROM brain.story_drafts
 				WHERE organization_id = :orgId AND document_id = :documentId AND status = 'DRAFT'
+				  AND updated_at <= (
+				      SELECT started_at FROM brain.ai_runs WHERE organization_id = :orgId AND id = :runId
+				  )
 				""")
 			.param("orgId", orgId)
 			.param("documentId", documentId)
+			.param("runId", runId)
 			.update();
-		Set<String> seen = new HashSet<>();
-		keptTitles(orgId, documentId).forEach(title -> seen.add(titleKey(title)));
+		Set<String> seen = new HashSet<>(jdbc.sql("""
+				SELECT title FROM brain.story_drafts
+				WHERE organization_id = :orgId AND document_id = :documentId AND status <> 'REJECTED'
+				""")
+			.param("orgId", orgId)
+			.param("documentId", documentId)
+			.query((row, rowNumber) -> titleKey(row.getString("title")))
+			.list());
+		int inserted = 0;
 		for (JsonNode story : stories) {
 			if (seen.add(titleKey(story.get("title").asString()))) {
 				insert(orgId, projectId, documentId, analysisId, actor, story, documentText);
+				inserted++;
 			}
+		}
+		if (inserted == 0) {
+			// Rolls back the delete above, so a useless result can never wipe the existing drafts.
+			throw new InvalidAiOutputException();
 		}
 	}
 

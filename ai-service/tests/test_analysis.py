@@ -73,7 +73,8 @@ def test_invalid_json_retries_once_then_returns_invalid_output(client, auth_head
     response = analyze(client, auth_headers)
 
     assert response.status_code == 502
-    assert response.json() == {"code": "INVALID_OUTPUT"}
+    assert response.json()["code"] == "INVALID_OUTPUT"
+    assert set(response.json()) == {"code", "usage"}
     assert len(provider.calls) == 2
 
 
@@ -83,7 +84,8 @@ def test_cut_off_response_returns_invalid_output(client, auth_headers, use_provi
     response = analyze(client, auth_headers)
 
     assert response.status_code == 502
-    assert response.json() == {"code": "INVALID_OUTPUT"}
+    assert response.json()["code"] == "INVALID_OUTPUT"
+    assert set(response.json()) == {"code", "usage"}
     assert len(provider.calls) == 2
 
 
@@ -110,7 +112,8 @@ def test_rate_limit_and_timeout_map_to_safe_codes(client, auth_headers, use_prov
     response = analyze(client, auth_headers)
 
     assert response.status_code == status
-    assert response.json() == {"code": code}
+    assert response.json()["code"] == code
+    assert set(response.json()) == {"code", "usage"}
     assert len(provider.calls) == 1
 
 
@@ -132,3 +135,25 @@ def test_rejects_text_over_limit_without_calling_provider(client, auth_headers, 
     assert response.status_code == 422
     assert response.json() == {"code": "INVALID_REQUEST"}
     assert provider.calls == []
+
+
+def test_failed_run_reports_tokens_from_every_attempt(client, auth_headers, use_provider):
+    use_provider({"summary": "bad"}, {"summary": "still bad"})
+
+    response = analyze(client, auth_headers)
+
+    assert response.status_code == 502
+    assert response.json()["code"] == "INVALID_OUTPUT"
+    assert response.json()["usage"]["promptVersion"] == "analysis-v1"
+    assert response.json()["usage"]["inputTokens"] == 20
+    assert response.json()["usage"]["outputTokens"] == 10
+
+
+def test_cut_off_attempt_tokens_count_when_retry_succeeds(client, auth_headers, use_provider):
+    use_provider(ProviderError("INVALID_OUTPUT", input_tokens=100, output_tokens=27), VALID)
+
+    response = analyze(client, auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()["usage"]["inputTokens"] == 110
+    assert response.json()["usage"]["outputTokens"] == 32

@@ -112,3 +112,14 @@ def test_missing_key_is_a_safe_provider_error(monkeypatch):
         get_provider()
 
     assert caught.value.code == "PROVIDER_ERROR"
+
+
+def test_cut_off_output_keeps_its_token_counts():
+    instance, _models = provider(response(finish=types.FinishReason.MAX_TOKENS))
+
+    with pytest.raises(ProviderError) as caught:
+        run(instance)
+
+    assert caught.value.code == "INVALID_OUTPUT"
+    assert caught.value.input_tokens == 100
+    assert caught.value.output_tokens == 27

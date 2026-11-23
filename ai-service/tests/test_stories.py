@@ -98,4 +98,5 @@ def test_story_without_acceptance_criteria_is_invalid(client, auth_headers, use_
     response = generate(client, auth_headers)
 
     assert response.status_code == 502
-    assert response.json() == {"code": "INVALID_OUTPUT"}
+    assert response.json()["code"] == "INVALID_OUTPUT"
+    assert set(response.json()) == {"code", "usage"}

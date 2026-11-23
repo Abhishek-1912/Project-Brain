@@ -10,9 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import com.jayway.jsonpath.JsonPath;
 import com.projectbrain.requirement.AiServiceClient;
+import com.projectbrain.requirement.AiServiceException;
 import com.projectbrain.support.TeamApiTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,6 +59,10 @@ class RequirementStoryApiTest extends TeamApiTestBase {
 		ai.storyRequests.clear();
 		ai.analyzeAnswers.clear();
 		ai.stories = stories(story("Book a table", "Project Manager", "Users can book a table"));
+		ai.failure = null;
+		ai.fatal = false;
+		ai.started = null;
+		ai.release = null;
 	}
 
 	@Test
@@ -189,6 +196,83 @@ class RequirementStoryApiTest extends TeamApiTestBase {
 
 		assertThat(titles(f)).containsExactlyInAnyOrder("Approved one", "Converted one", "New draft");
 		assertThat(ai.storyRequests.get(1).keptStoryTitles()).containsExactlyInAnyOrder("Approved one", "Converted one");
+	}
+
+	@Test
+	void editSavedDuringRegenerationIsKept() throws Exception {
+		Fixture f = fixture();
+		ai.stories = stories(story("Edit me", "Project Manager", "x"), story("Replace me", "Project Manager", "x"));
+		awaitRun(f, generate(f), "SUCCEEDED");
+		UUID story = storyId(f);
+		ai.stories = stories(story("Fresh", "Project Manager", "x"), story("edited during RUN", "Project Manager", "x"));
+		ai.started = new CountDownLatch(1);
+		ai.release = new CountDownLatch(1);
+
+		UUID run = generate(f);
+		assertThat(ai.started.await(5, TimeUnit.SECONDS)).isTrue();
+		mvc.perform(patchStory(f, story, f.owner, storyBody("Edited during run", f.approverRole, 0)))
+			.andExpect(status().isOk());
+		ai.release.countDown();
+		awaitRun(f, run, "SUCCEEDED");
+
+		assertThat(titles(f)).containsExactlyInAnyOrder("Edited during run", "Fresh");
+	}
+
+	@Test
+	void emptyAiResultLeavesDraftsAndFails() throws Exception {
+		Fixture f = fixture();
+		awaitRun(f, generate(f), "SUCCEEDED");
+		ai.stories = "{\"stories\":[]}";
+
+		UUID run = generate(f);
+		awaitRun(f, run, "FAILED");
+
+		mvc.perform(get(ORGS + "/" + f.org + "/ai-runs/" + run).with(as(f.owner)))
+			.andExpect(jsonPath("$.errorCode").value("INVALID_OUTPUT"));
+		assertThat(titles(f)).containsExactly("Book a table");
+	}
+
+	@Test
+	void resultWithOnlyKeptTitlesLeavesDraftsAndFails() throws Exception {
+		Fixture f = fixture();
+		ai.stories = stories(story("Approved one", "Project Manager", "x"), story("Draft one", "Project Manager", "x"));
+		awaitRun(f, generate(f), "SUCCEEDED");
+		execute("UPDATE brain.story_drafts SET status = 'APPROVED' WHERE document_id = ? AND title = 'Approved one'",
+				f.document);
+		ai.stories = stories(story("approved ONE", "Project Manager", "x"));
+
+		awaitRun(f, generate(f), "FAILED");
+
+		assertThat(titles(f)).containsExactlyInAnyOrder("Approved one", "Draft one");
+	}
+
+	@Test
+	void fatalWorkerErrorDoesNotLeaveRunActive() throws Exception {
+		Fixture f = fixture();
+		ai.fatal = true;
+
+		UUID run = generate(f);
+		awaitRun(f, run, "FAILED");
+
+		mvc.perform(get(ORGS + "/" + f.org + "/ai-runs/" + run).with(as(f.owner)))
+			.andExpect(jsonPath("$.errorCode").value("INTERNAL_ERROR"));
+	}
+
+	@Test
+	void failedRunRecordsUsageFromTheAiService() throws Exception {
+		Fixture f = fixture();
+		ai.failure = new AiServiceException("INVALID_OUTPUT",
+				new AiServiceClient.AiUsage("gemini", "gemini-test", "stories-v1", 70, 30));
+
+		UUID run = generate(f);
+		awaitRun(f, run, "FAILED");
+
+		mvc.perform(get(ORGS + "/" + f.org + "/ai-runs/" + run).with(as(f.owner)))
+			.andExpect(jsonPath("$.provider").value("gemini"))
+			.andExpect(jsonPath("$.model").value("gemini-test"))
+			.andExpect(jsonPath("$.promptVersion").value("stories-v1"))
+			.andExpect(jsonPath("$.inputTokens").value(70))
+			.andExpect(jsonPath("$.outputTokens").value(30));
 	}
 
 	@Test
@@ -441,6 +525,14 @@ class RequirementStoryApiTest extends TeamApiTestBase {
 
 		volatile String stories;
 
+		volatile AiServiceException failure;
+
+		volatile boolean fatal;
+
+		volatile CountDownLatch started;
+
+		volatile CountDownLatch release;
+
 		@Override
 		public ExtractedText extract(String filename, String contentType, byte[] content) {
 			throw new UnsupportedOperationException();
@@ -456,6 +548,24 @@ class RequirementStoryApiTest extends TeamApiTestBase {
 		@Override
 		public GeneratedResult generateStories(StoriesRequest request) {
 			storyRequests.add(request);
+			if (started != null) {
+				started.countDown();
+			}
+			try {
+				if (release != null && !release.await(5, TimeUnit.SECONDS)) {
+					throw new AiServiceException("PROVIDER_TIMEOUT");
+				}
+			}
+			catch (InterruptedException ex) {
+				Thread.currentThread().interrupt();
+				throw new AiServiceException("PROVIDER_TIMEOUT");
+			}
+			if (fatal) {
+				throw new StackOverflowError();
+			}
+			if (failure != null) {
+				throw failure;
+			}
 			return new GeneratedResult(JsonMapper.builder().build().readTree(stories),
 					new AiUsage("gemini", "gemini-test", "stories-v1", 10, 5));
 		}

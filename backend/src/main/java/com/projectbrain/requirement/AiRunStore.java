@@ -1,6 +1,7 @@
 package com.projectbrain.requirement;
 
 import java.math.BigDecimal;
+import java.sql.Types;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,12 +77,19 @@ class AiRunStore {
 			.update() == 1;
 	}
 
-	boolean fail(UUID orgId, UUID id, String errorCode) {
+	boolean fail(UUID orgId, UUID id, String errorCode, AiUsage usage) {
 		return jdbc.sql("""
-				UPDATE brain.ai_runs SET status = 'FAILED', error_code = :errorCode, finished_at = now()
+				UPDATE brain.ai_runs
+				SET status = 'FAILED', error_code = :errorCode, finished_at = now(), provider = :provider, model = :model,
+				    prompt_version = :promptVersion, input_tokens = :inputTokens, output_tokens = :outputTokens
 				WHERE organization_id = :orgId AND id = :id AND status IN ('QUEUED', 'RUNNING')
 				""")
 			.param("errorCode", errorCode)
+			.param("provider", usage == null ? null : usage.provider(), Types.VARCHAR)
+			.param("model", usage == null ? null : usage.model(), Types.VARCHAR)
+			.param("promptVersion", usage == null ? null : usage.promptVersion(), Types.VARCHAR)
+			.param("inputTokens", usage == null ? 0 : usage.inputTokens())
+			.param("outputTokens", usage == null ? 0 : usage.outputTokens())
 			.param("orgId", orgId)
 			.param("id", id)
 			.update() == 1;

@@ -5,11 +5,11 @@ Phase 1: Complete
 Phase 1.5: Complete and merged into `main` through PR #2
 Phase 2: Working model complete on its branch, for dummy data only. Not merged into `main`.
 Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12, Phase 2 Tasks 1 through 10
-Current task: Final whole-branch review of Phase 2
+Current task: Choose how to finish the Phase 2 branch
 Blockers: none
 Phase 1 acceptance: On 2026-11-23, 135 backend tests, 83 frontend tests and the production build passed. The developer confirmed the browser flow against Supabase and the running backend.
 Phase 1.5 acceptance: On 2026-11-23, 236 backend tests, 134 frontend tests, the production build and lint passed. A fresh review found no Critical issues, and its Important findings were fixed. The developer confirmed the two-user browser flow against Supabase and the running backend.
-Phase 2 acceptance: On 2026-11-23, 60 AI service tests, 327 backend tests, 155 frontend tests, the production build and lint passed. The developer confirmed the browser flow with the dummy PRD, Gemini free tier, Supabase and the running services.
+Phase 2 acceptance: On 2026-11-23, the developer confirmed the browser flow with the dummy PRD, Gemini free tier, Supabase and the running services. A fresh review then found no Critical issues, and its six Important findings were fixed. After those fixes, 63 AI service tests, 341 backend tests, 156 frontend tests, the production build and lint passed. The fixes were not repeated in the live browser flow.
 Database: Migration `V4` is applied to Supabase. `V3` is included in `main`; `V4` is only on the Phase 2 branch until it merges.
 Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0002-team-and-approval-model.md` and `docs/decisions/0003-ai-service-boundary.md`.
 
@@ -28,6 +28,7 @@ Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0
 - Phase 2 is for dummy data only. Real documents need a paid Gemini tier, private file storage, spending limits, retention and deletion rules, and client consent.
 - AI run recovery assumes one backend instance. A second instance starting up would mark the first instance's active runs as failed.
 - Regenerating stories replaces all drafts, including hand-edited drafts, after a confirmation.
+- Ten minor Phase 2 review findings are deferred, including differing Python and Spring story limits, older answers on dismissed repeat questions, very short verified quotes, and story-run usage not shown on screen.
 - The AI service has no committed start script yet. It must be started with only `GEMINI_API_KEY`, `AI_SERVICE_TOKEN`, and optional `GEMINI_MODEL`.
 
 ## Development notes

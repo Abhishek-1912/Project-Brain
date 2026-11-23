@@ -91,11 +91,7 @@ class HttpAiServiceClient implements AiServiceClient {
 				.body(json.writeValueAsBytes(payload))
 				.exchange((request, response) -> read(response.getStatusCode().is2xxSuccessful(),
 						response.getBody().readAllBytes()), true);
-			JsonNode usage = body.required("usage");
-			return new GeneratedResult(body.required("result"),
-					new AiUsage(usage.required("provider").asString(), usage.required("model").asString(),
-							usage.required("promptVersion").asString(), usage.required("inputTokens").asInt(),
-							usage.required("outputTokens").asInt()));
+			return new GeneratedResult(body.required("result"), readUsage(body.required("usage")));
 		}
 		catch (RestClientException | JacksonException ex) {
 			throw new AiServiceException(UNAVAILABLE);
@@ -106,17 +102,32 @@ class HttpAiServiceClient implements AiServiceClient {
 		if (success) {
 			return json.readTree(bytes);
 		}
-		throw new AiServiceException(errorCode(bytes));
+		throw failure(bytes);
 	}
 
-	private String errorCode(byte[] bytes) {
+	private AiServiceException failure(byte[] bytes) {
 		try {
-			String code = json.readTree(bytes).path("code").asString("");
-			return KNOWN_CODES.contains(code) ? code : UNAVAILABLE;
+			JsonNode body = json.readTree(bytes);
+			String code = body.path("code").asString("");
+			return KNOWN_CODES.contains(code) ? new AiServiceException(code, usage(body.get("usage")))
+					: new AiServiceException(UNAVAILABLE);
 		}
 		catch (JacksonException ex) {
-			return UNAVAILABLE;
+			return new AiServiceException(UNAVAILABLE);
 		}
+	}
+
+	private static AiUsage usage(JsonNode usage) {
+		if (usage == null || !usage.isObject()) {
+			return null;
+		}
+		return readUsage(usage);
+	}
+
+	private static AiUsage readUsage(JsonNode usage) {
+		return new AiUsage(usage.required("provider").asString(), usage.required("model").asString(),
+				usage.required("promptVersion").asString(), usage.required("inputTokens").asInt(),
+				usage.required("outputTokens").asInt());
 	}
 
 }

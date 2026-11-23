@@ -11,6 +11,7 @@ import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
 import com.projectbrain.project.api.ProjectLookup;
 import com.projectbrain.project.api.ProjectStatus;
+import com.projectbrain.requirement.AiServiceClient.AiUsage;
 import com.projectbrain.requirement.AiServiceClient.GeneratedResult;
 import com.projectbrain.shared.web.ConflictException;
 import com.projectbrain.shared.web.ForbiddenException;
@@ -31,6 +32,8 @@ class AiRunWorker {
 	private static final int THREADS = 2;
 
 	private static final int QUEUE = 20;
+
+	private static final long[] FAIL_RETRY_MILLIS = { 250, 1000, 3000 };
 
 	private final OrgTx orgTx;
 
@@ -72,7 +75,7 @@ class AiRunWorker {
 			return true;
 		}
 		catch (TaskRejectedException ex) {
-			fail(job, "SERVICE_BUSY");
+			fail(job, "SERVICE_BUSY", null);
 			return false;
 		}
 	}
@@ -87,7 +90,7 @@ class AiRunWorker {
 			if ("STORIES".equals(job.runType())) {
 				execute(job, () -> stories.loadInput(job.orgId(), job.documentId()),
 						input -> ai.generateStories(input.request()),
-						(input, generated) -> stories.save(job.orgId(), job.projectId(), job.documentId(),
+						(input, generated) -> stories.save(job.orgId(), job.projectId(), job.documentId(), job.runId(),
 								input.analysisId(), job.actor(), generated.result()));
 			}
 			else {
@@ -102,7 +105,12 @@ class AiRunWorker {
 			if ("INTERNAL_ERROR".equals(code)) {
 				log.error("AI run {} failed: {}", job.runId(), ex.getClass().getSimpleName());
 			}
-			fail(job, code);
+			fail(job, code, ex instanceof AiServiceException service ? service.usage() : null);
+		}
+		catch (Throwable ex) {
+			// An Error must not leave the document blocked by a run that can never finish.
+			log.error("AI run {} failed: {}", job.runId(), ex.getClass().getSimpleName());
+			fail(job, "INTERNAL_ERROR", null);
 		}
 	}
 
@@ -135,18 +143,36 @@ class AiRunWorker {
 		}
 	}
 
-	private void fail(Job job, String code) {
-		try {
-			orgTx.withOrgContext(job.actor(), job.orgId(), () -> {
-				if (store.fail(job.orgId(), job.runId(), code)) {
-					auditLog.recordAs(job.actor(), job.orgId(), "AI_RUN_FAILED", "AI_RUN", job.runId(),
-							Map.of("runType", job.runType(), "errorCode", code));
+	/** Retries, because a run left active blocks its document until the next restart. */
+	private void fail(Job job, String code, AiUsage usage) {
+		for (int attempt = 0; attempt <= FAIL_RETRY_MILLIS.length; attempt++) {
+			try {
+				orgTx.withOrgContext(job.actor(), job.orgId(), () -> {
+					if (store.fail(job.orgId(), job.runId(), code, usage)) {
+						auditLog.recordAs(job.actor(), job.orgId(), "AI_RUN_FAILED", "AI_RUN", job.runId(),
+								Map.of("runType", job.runType(), "errorCode", code));
+					}
+					return null;
+				});
+				return;
+			}
+			catch (RuntimeException ex) {
+				log.error("Could not mark AI run {} failed: {}", job.runId(), ex.getClass().getSimpleName());
+				if (attempt == FAIL_RETRY_MILLIS.length || !pause(FAIL_RETRY_MILLIS[attempt])) {
+					return;
 				}
-				return null;
-			});
+			}
 		}
-		catch (RuntimeException ex) {
-			log.error("Could not mark AI run {} failed: {}", job.runId(), ex.getClass().getSimpleName());
+	}
+
+	private static boolean pause(long millis) {
+		try {
+			Thread.sleep(millis);
+			return true;
+		}
+		catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			return false;
 		}
 	}
 

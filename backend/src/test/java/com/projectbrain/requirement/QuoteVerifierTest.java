@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class QuoteVerifierTest {
 
@@ -20,6 +21,12 @@ class QuoteVerifierTest {
 			"'', false" })
 	void quoteVerificationIgnoresCaseAndWhitespaceOnly(String quote, boolean expected) {
 		assertThat(QuoteVerifier.isVerified(quote, DOCUMENT)).isEqualTo(expected);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "\u00A0", "\u202F", "\u2009", "\u2028", "\u0085", "\u3000", "\r\n" })
+	void unicodeSpacingInTheDocumentStillVerifies(String space) {
+		assertThat(QuoteVerifier.isVerified("Users can book", "Users" + space + "can" + space + "book a table")).isTrue();
 	}
 
 	@ParameterizedTest

@@ -358,6 +358,32 @@ describe('story screens', () => {
     expect(within(dialog).queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
   })
 
+  it('loads stories past the first page', async () => {
+    const all = Array.from({ length: 101 }, (_, index) =>
+      story({
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        title: `Story ${index}`,
+        status: 'APPROVED',
+        canReview: false,
+      }),
+    )
+    serve({
+      [`GET ${DOC}/stories`]: (request) => {
+        const pageNumber = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        return json(200, {
+          items: all.slice(pageNumber * 100, (pageNumber + 1) * 100),
+          page: pageNumber,
+          size: 100,
+          totalItems: all.length,
+        })
+      },
+    })
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: 'Story 100' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create 101 tasks' })).toBeInTheDocument()
+  })
+
   it('shows review history', async () => {
     const user = userEvent.setup()
     serve({

@@ -162,10 +162,15 @@ export function useStories(orgId: string, documentId: string) {
   return useQuery({
     queryKey: storiesKey(orgId, documentId),
     queryFn: async () => {
-      const { data } = await api.GET('/organizations/{orgId}/requirements/{documentId}/stories', {
-        params: { path: { orgId, documentId }, query: { size: 100 } },
-      })
-      return data!
+      // Counts and Create tasks must cover every story, so read all pages.
+      const items: Story[] = []
+      for (let page = 0; ; page += 1) {
+        const { data } = await api.GET('/organizations/{orgId}/requirements/{documentId}/stories', {
+          params: { path: { orgId, documentId }, query: { page, size: 100 } },
+        })
+        items.push(...data!.items)
+        if (data!.items.length === 0 || items.length >= data!.totalItems) return { items }
+      }
     },
   })
 }

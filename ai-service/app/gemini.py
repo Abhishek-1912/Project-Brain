@@ -41,12 +41,16 @@ class GeminiProvider:
             timed_out = isinstance(error, TimeoutError) or "timeout" in type(error).__name__.lower()
             raise ProviderError("PROVIDER_TIMEOUT" if timed_out else "PROVIDER_ERROR") from None
 
+        input_tokens = _count(response, "prompt_token_count")
+        output_tokens = _count(response, "candidates_token_count") + _count(
+            response, "thoughts_token_count"
+        )
+        try:
+            data = _parse(response)
+        except ProviderError as error:
+            raise ProviderError(error.code, input_tokens, output_tokens) from None
         return ProviderResult(
-            data=_parse(response),
-            model=self.model,
-            input_tokens=_count(response, "prompt_token_count"),
-            output_tokens=_count(response, "candidates_token_count")
-            + _count(response, "thoughts_token_count"),
+            data=data, model=self.model, input_tokens=input_tokens, output_tokens=output_tokens
         )
 
 

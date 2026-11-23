@@ -25,7 +25,10 @@ async def extraction_error(_request: Request, error: ExtractionError) -> JSONRes
 
 @app.exception_handler(ProviderError)
 async def provider_error(_request: Request, error: ProviderError) -> JSONResponse:
-    return JSONResponse(status_code=error.status, content={"code": error.code})
+    content: dict[str, Any] = {"code": error.code}
+    if error.usage:
+        content["usage"] = error.usage.model_dump(by_alias=True)
+    return JSONResponse(status_code=error.status, content=content)
 
 
 @app.exception_handler(RequestValidationError)

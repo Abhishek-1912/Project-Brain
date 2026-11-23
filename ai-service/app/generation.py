@@ -39,24 +39,35 @@ def _generate(
 ) -> tuple[T, Usage]:
     input_tokens = 0
     output_tokens = 0
-    for _attempt in range(MAX_ATTEMPTS):
-        try:
-            outcome = provider.generate_json(system, document, schema)
-        except ProviderError as error:
-            if error.code == "INVALID_OUTPUT":
-                continue
-            raise
-        input_tokens += outcome.input_tokens
-        output_tokens += outcome.output_tokens
-        try:
-            parsed = schema.model_validate(outcome.data)
-        except ValidationError:
-            continue
-        return parsed, Usage(
+    model = getattr(provider, "model", "unknown")
+
+    def usage() -> Usage:
+        return Usage(
             provider=provider.name,
-            model=outcome.model,
+            model=model,
             prompt_version=prompt_version,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
         )
-    raise ProviderError("INVALID_OUTPUT")
+
+    for _attempt in range(MAX_ATTEMPTS):
+        try:
+            outcome = provider.generate_json(system, document, schema)
+        except ProviderError as error:
+            input_tokens += error.input_tokens
+            output_tokens += error.output_tokens
+            if error.code == "INVALID_OUTPUT":
+                continue
+            error.usage = usage()
+            raise
+        input_tokens += outcome.input_tokens
+        output_tokens += outcome.output_tokens
+        model = outcome.model
+        try:
+            parsed = schema.model_validate(outcome.data)
+        except ValidationError:
+            continue
+        return parsed, usage()
+    failure = ProviderError("INVALID_OUTPUT")
+    failure.usage = usage()
+    raise failure

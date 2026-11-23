@@ -15,7 +15,7 @@ final class QuoteVerifier {
 	}
 
 	private static String normalize(String value) {
-		return value.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").strip();
+		return value.toLowerCase(Locale.ROOT).replaceAll("[\\s\\p{Z}\\u0085]+", " ").strip();
 	}
 
 }
