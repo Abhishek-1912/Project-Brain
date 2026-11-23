@@ -213,7 +213,10 @@ function ProjectTasks({ projectId }: { projectId: string }) {
 
   return (
     <section>
-      <Link to={projectsPath} className="text-sm">Back to projects</Link>
+      <div className="flex flex-wrap justify-between gap-3 text-sm">
+        <Link to={projectsPath}>Back to projects</Link>
+        <Link to={`${projectsPath}/projects/${projectId}/team`}>Project team</Link>
+      </div>
       <div className="mt-3 mb-4 flex min-h-9 flex-wrap items-center justify-between gap-3">
         <h2 className="min-w-0 text-lg font-semibold break-words text-text-primary">
           {project.data.name}

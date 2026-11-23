@@ -17,6 +17,7 @@ import { ProjectListPage } from './features/projects/ProjectListPage'
 import { TaskListPage } from './features/tasks/TaskListPage'
 import { InviteAcceptPage } from './features/team/InviteAcceptPage'
 import { readPendingInvite } from './features/team/pendingInvite'
+import { ProjectTeamPage } from './features/team/ProjectTeamPage'
 import { TeamPage } from './features/team/TeamPage'
 
 function createQueryClient() {
@@ -102,6 +103,7 @@ export function AppRoutes() {
         <Route path="orgs/:orgId" element={<AppLayout />}>
           <Route index element={<ProjectListPage />} />
           <Route path="projects/:projectId" element={<TaskListPage />} />
+          <Route path="projects/:projectId/team" element={<ProjectTeamPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>
