@@ -343,10 +343,224 @@ class TaskApiTest extends PostgresTestBase {
 		mvc.perform(get(taskUrl(org, task)).with(as(member))).andExpect(status().isNotFound());
 	}
 
+	@Test
+	void newTaskRequiresActiveResponsibleRole() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID active = seedRole(org, "Backend", true);
+		UUID inactive = seedRole(org, "Legacy", false);
+		UUID otherOwner = seedProfile();
+		UUID otherRole = seedRole(seedOrg(otherOwner, "OWNER"), "Backend", true);
+
+		postRaw(owner, org, project, "{\"title\":\"No role\"}").andExpect(status().isUnprocessableContent());
+		postRaw(owner, org, project, withRole("{\"title\":\"Inactive\"}", inactive))
+			.andExpect(status().isUnprocessableContent());
+		postRaw(owner, org, project, withRole("{\"title\":\"Other org\"}", otherRole))
+			.andExpect(status().isUnprocessableContent());
+		assertThat(taskCount(project)).isZero();
+
+		postRaw(owner, org, project, withRole("{\"title\":\"Valid\"}", active))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.responsibleJobRoleId").value(active.toString()));
+	}
+
+	@Test
+	void newTaskCannotStartInReviewOrDone() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+
+		for (String taskStatus : new String[] { "IN_REVIEW", "DONE" }) {
+			postRaw(owner, org, project, withRole("{\"title\":\"Bypass\",\"status\":\"" + taskStatus + "\"}", role))
+				.andExpect(status().isUnprocessableContent());
+		}
+		assertThat(taskCount(project)).isZero();
+	}
+
+	@Test
+	void phaseOneTaskWithoutRoleCanMoveDirectlyToDone() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID task = seedTask(org, project, owner, "Old", "TODO", null);
+
+		patchTask(owner, org, task, "{\"status\":\"DONE\",\"version\":0}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("DONE"))
+			.andExpect(content().string(containsString("\"responsibleJobRoleId\":null")));
+	}
+
+	@Test
+	void taskWithRoleCannotPatchToInReviewOrDone() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+		UUID task = seedRoleTask(org, project, owner, "TODO", role);
+
+		patchTask(owner, org, task, "{\"status\":\"IN_REVIEW\",\"version\":0}").andExpect(status().isConflict());
+		patchTask(owner, org, task, "{\"status\":\"DONE\",\"version\":0}").andExpect(status().isConflict());
+		patchTask(owner, org, task, "{\"status\":\"IN_PROGRESS\",\"version\":0}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+	}
+
+	@Test
+	void settingRoleInSamePatchCannotBypassReview() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+		UUID task = seedTask(org, project, owner, "Old", "TODO", null);
+
+		patchTask(owner, org, task, "{\"status\":\"DONE\",\"responsibleJobRoleId\":\"" + role + "\",\"version\":0}")
+			.andExpect(status().isConflict());
+		assertThat(taskColumn("status", task)).isEqualTo("TODO");
+	}
+
+	@Test
+	void taskInReviewOrDoneCannotLeaveThroughPatch() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+		UUID inReview = seedRoleTask(org, project, owner, "IN_REVIEW", role);
+		UUID done = seedRoleTask(org, project, owner, "DONE", role);
+
+		patchTask(owner, org, inReview, "{\"status\":\"TODO\",\"version\":0}").andExpect(status().isConflict());
+		patchTask(owner, org, inReview, "{\"status\":\"DONE\",\"version\":0}").andExpect(status().isConflict());
+		patchTask(owner, org, done, "{\"status\":\"IN_PROGRESS\",\"version\":0}").andExpect(status().isConflict());
+	}
+
+	@Test
+	void contentCanChangeDuringReview() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+		UUID task = seedRoleTask(org, project, owner, "IN_REVIEW", role);
+
+		patchTask(owner, org, task, "{\"title\":\"Improved\",\"version\":0}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("IN_REVIEW"))
+			.andExpect(jsonPath("$.version").value(1));
+	}
+
+	@Test
+	void roleCannotBeClearedOrChangedDuringReview() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID backend = seedRole(org, "Backend", true);
+		UUID qa = seedRole(org, "QA", true);
+		UUID inactive = seedRole(org, "Legacy", false);
+		UUID todo = seedRoleTask(org, project, owner, "TODO", backend);
+		UUID inReview = seedRoleTask(org, project, owner, "IN_REVIEW", backend);
+
+		patchTask(owner, org, todo, "{\"responsibleJobRoleId\":null,\"version\":0}")
+			.andExpect(status().isUnprocessableContent());
+		patchTask(owner, org, todo, "{\"responsibleJobRoleId\":\"" + inactive + "\",\"version\":0}")
+			.andExpect(status().isUnprocessableContent());
+		patchTask(owner, org, inReview, "{\"responsibleJobRoleId\":\"" + qa + "\",\"version\":0}")
+			.andExpect(status().isConflict());
+		patchTask(owner, org, todo, "{\"responsibleJobRoleId\":\"" + qa + "\",\"version\":0}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.responsibleJobRoleId").value(qa.toString()));
+	}
+
+	@Test
+	void phaseOneTaskInReviewCannotReceiveRoleUntilItLeavesReview() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+		UUID task = seedTask(org, project, owner, "Old review", "IN_REVIEW", null);
+
+		patchTask(owner, org, task, "{\"responsibleJobRoleId\":\"" + role + "\",\"version\":0}")
+			.andExpect(status().isConflict());
+		patchTask(owner, org, task, "{\"status\":\"IN_PROGRESS\",\"version\":0}").andExpect(status().isOk());
+		patchTask(owner, org, task, "{\"responsibleJobRoleId\":\"" + role + "\",\"version\":1}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.responsibleJobRoleId").value(role.toString()));
+	}
+
+	@Test
+	void settingRoleOnPhaseOneDoneTaskDoesNotReopenIt() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+		UUID task = seedTask(org, project, owner, "Old done", "DONE", null);
+
+		patchTask(owner, org, task, "{\"responsibleJobRoleId\":\"" + role + "\",\"version\":0}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("DONE"))
+			.andExpect(jsonPath("$.responsibleJobRoleId").value(role.toString()));
+	}
+
+	@Test
+	void doneTaskWithRoleCannotBeEdited() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID project = seedProject(org, owner, "ACTIVE");
+		UUID role = seedRole(org, "Backend", true);
+		UUID qa = seedRole(org, "QA", true);
+		UUID task = seedRoleTask(org, project, owner, "DONE", role);
+
+		patchTask(owner, org, task, "{\"title\":\"Changed\",\"version\":0}").andExpect(status().isConflict());
+		patchTask(owner, org, task, "{\"priority\":\"URGENT\",\"version\":0}").andExpect(status().isConflict());
+		patchTask(owner, org, task, "{\"assigneeId\":\"" + owner + "\",\"version\":0}").andExpect(status().isConflict());
+		patchTask(owner, org, task, "{\"responsibleJobRoleId\":\"" + qa + "\",\"version\":0}")
+			.andExpect(status().isConflict());
+		patchTask(owner, org, task, "{\"title\":\"Role task\",\"version\":0}").andExpect(status().isOk());
+		assertThat(taskTitle(task)).isEqualTo("Role task");
+	}
+
 	private ResultActions createTask(UUID user, UUID org, UUID project, String json) throws Exception {
+		return postRaw(user, org, project, withRole(json, seedRole(org, "Default test role", true)));
+	}
+
+	private ResultActions postRaw(UUID user, UUID org, UUID project, String json) throws Exception {
 		return mvc.perform(post(tasksUrl(org, project)).with(as(user))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(json));
+	}
+
+	private static String withRole(String json, UUID role) {
+		return json.replaceFirst("\\{", "{\"responsibleJobRoleId\":\"" + role + "\",");
+	}
+
+	private static UUID seedRole(UUID org, String name, boolean active) throws SQLException {
+		try (Connection admin = adminConnection();
+				PreparedStatement statement = admin.prepareStatement("""
+						INSERT INTO brain.job_roles (id, organization_id, name, active) VALUES (?, ?, ?, ?)
+						ON CONFLICT (organization_id, lower(name)) DO UPDATE SET active = EXCLUDED.active
+						RETURNING id
+						""")) {
+			statement.setObject(1, UUID.randomUUID());
+			statement.setObject(2, org);
+			statement.setString(3, name);
+			statement.setBoolean(4, active);
+			try (ResultSet rows = statement.executeQuery()) {
+				rows.next();
+				return rows.getObject(1, UUID.class);
+			}
+		}
+	}
+
+	private static UUID seedRoleTask(UUID org, UUID project, UUID creator, String taskStatus, UUID role)
+			throws SQLException {
+		UUID task = seedTask(org, project, creator, "Role task", taskStatus, null);
+		try (Connection admin = adminConnection();
+				PreparedStatement statement = admin
+					.prepareStatement("UPDATE brain.tasks SET responsible_job_role_id = ? WHERE id = ?")) {
+			statement.setObject(1, role);
+			statement.setObject(2, task);
+			statement.executeUpdate();
+		}
+		return task;
 	}
 
 	private ResultActions patchTask(UUID user, UUID org, UUID task, String json) throws Exception {

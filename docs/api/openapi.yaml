@@ -858,7 +858,7 @@ components:
 
     Task:
       type: object
-      required: [id, organizationId, projectId, title, description, status, priority, assigneeId, dueDate, createdBy, createdAt, updatedAt, version]
+      required: [id, organizationId, projectId, title, description, status, priority, assigneeId, dueDate, responsibleJobRoleId, createdBy, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         organizationId: { type: string, format: uuid }
@@ -869,6 +869,10 @@ components:
         priority: { $ref: '#/components/schemas/TaskPriority' }
         assigneeId: { type: [string, 'null'], format: uuid }
         dueDate: { type: [string, 'null'], format: date }
+        responsibleJobRoleId:
+          type: [string, 'null']
+          format: uuid
+          description: Null only for tasks created before job roles existed
         createdBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -876,7 +880,7 @@ components:
     TaskCreate:
       type: object
       additionalProperties: false
-      required: [title]
+      required: [title, responsibleJobRoleId]
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: [string, 'null'], maxLength: 10000 }
@@ -888,6 +892,10 @@ components:
           default: MEDIUM
         assigneeId: { type: [string, 'null'], format: uuid }
         dueDate: { type: [string, 'null'], format: date }
+        responsibleJobRoleId:
+          type: string
+          format: uuid
+          description: Must be an active job role. New tasks cannot start in IN_REVIEW or DONE.
     TaskPatch:
       type: object
       additionalProperties: false
@@ -899,6 +907,10 @@ components:
         priority: { $ref: '#/components/schemas/TaskPriority' }
         assigneeId: { type: [string, 'null'], format: uuid }
         dueDate: { type: [string, 'null'], format: date }
+        responsibleJobRoleId:
+          type: string
+          format: uuid
+          description: Cannot be cleared once set, or changed while the task is in review
         version: { type: integer, format: int64 }
 
     AuditEvent:
