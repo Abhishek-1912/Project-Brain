@@ -384,6 +384,205 @@ class RlsIsolationTest extends PostgresTestBase {
 		assertThat(names).containsExactlyInAnyOrder("Project Manager", "Architect", "Backend", "Frontend", "QA", "DevOps");
 	}
 
+	@Test
+	void organizationBCannotReadRequirementData() throws SQLException {
+		UUID jobRole = UUID.randomUUID();
+		try (Connection admin = adminConnection()) {
+			insertJobRole(admin, jobRole, ORG_B, "Requirements " + jobRole);
+			UUID document = insertRequirementDocument(admin, ORG_B, PROJECT_B, USER_B);
+			update(admin, "INSERT INTO brain.requirement_document_files (document_id, organization_id, content) VALUES (?, ?, ?)",
+					document, ORG_B, new byte[] { 1, 2, 3 });
+			UUID run = insertAiRun(admin, ORG_B, PROJECT_B, document, USER_B, "SUCCEEDED");
+			UUID analysis = UUID.randomUUID();
+			update(admin, "INSERT INTO brain.requirement_analyses (id, organization_id, document_id, analysis_version, ai_run_id, result, created_by) VALUES (?, ?, ?, 1, ?, '{}'::jsonb, ?)",
+					analysis, ORG_B, document, run, USER_B);
+			update(admin, "INSERT INTO brain.clarification_questions (id, organization_id, analysis_id, position, question, reason) VALUES (?, ?, ?, 0, 'Question?', 'Reason')",
+					UUID.randomUUID(), ORG_B, analysis);
+			UUID story = insertStory(admin, ORG_B, PROJECT_B, document, analysis, jobRole);
+			update(admin, "INSERT INTO brain.story_reviews (id, organization_id, project_id, document_id, story_id, story_version, action, actor_id, job_role_id) VALUES (?, ?, ?, ?, ?, 0, 'SUBMITTED', ?, ?)",
+					UUID.randomUUID(), ORG_B, PROJECT_B, document, story, USER_B, jobRole);
+		}
+		asTenant(USER_A, ORG_A, app -> {
+			for (String table : new String[] { "brain.requirement_documents", "brain.requirement_document_files",
+					"brain.ai_runs", "brain.requirement_analyses", "brain.clarification_questions", "brain.story_drafts",
+					"brain.story_reviews" }) {
+				assertThat(countForOrg(app, table, ORG_B)).as(table).isZero();
+			}
+		});
+	}
+
+	@Test
+	void requirementTablesForceRowLevelSecurity() throws SQLException {
+		Set<String> forced = new HashSet<>();
+		try (Connection app = appConnection();
+				PreparedStatement statement = app.prepareStatement("""
+						SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+						WHERE n.nspname = 'brain' AND c.relkind = 'r'
+						AND c.relrowsecurity AND c.relforcerowsecurity
+						""");
+				ResultSet rows = statement.executeQuery()) {
+			while (rows.next()) {
+				forced.add(rows.getString(1));
+			}
+		}
+		assertThat(forced).contains("requirement_documents", "requirement_document_files", "ai_runs",
+				"requirement_analyses", "clarification_questions", "story_drafts", "story_reviews");
+	}
+
+	@Test
+	void appRoleCannotUpdateOrDeleteStoryReviews() throws SQLException {
+		UUID jobRole = UUID.randomUUID();
+		UUID story;
+		try (Connection admin = adminConnection()) {
+			insertJobRole(admin, jobRole, ORG_A, "Review history " + jobRole);
+			UUID document = insertRequirementDocument(admin, ORG_A, PROJECT_A, USER_A);
+			UUID run = insertAiRun(admin, ORG_A, PROJECT_A, document, USER_A, "SUCCEEDED");
+			UUID analysis = UUID.randomUUID();
+			update(admin, "INSERT INTO brain.requirement_analyses (id, organization_id, document_id, analysis_version, ai_run_id, result, created_by) VALUES (?, ?, ?, 1, ?, '{}'::jsonb, ?)",
+					analysis, ORG_A, document, run, USER_A);
+			story = insertStory(admin, ORG_A, PROJECT_A, document, analysis, jobRole);
+			update(admin, "INSERT INTO brain.story_reviews (id, organization_id, project_id, document_id, story_id, story_version, action, actor_id, job_role_id) VALUES (?, ?, ?, ?, ?, 0, 'SUBMITTED', ?, ?)",
+					UUID.randomUUID(), ORG_A, PROJECT_A, document, story, USER_A, jobRole);
+		}
+		assertSqlState(SQLSTATE_INSUFFICIENT_PRIVILEGE, USER_A, ORG_A,
+				app -> update(app, "UPDATE brain.story_reviews SET comment = 'changed' WHERE story_id = ?", story));
+		assertSqlState(SQLSTATE_INSUFFICIENT_PRIVILEGE, USER_A, ORG_A,
+				app -> update(app, "DELETE FROM brain.story_reviews WHERE story_id = ?", story));
+	}
+
+	@Test
+	void documentCannotHaveTwoActiveRuns() throws SQLException {
+		UUID document;
+		try (Connection admin = adminConnection()) {
+			document = insertRequirementDocument(admin, ORG_A, PROJECT_A, USER_A);
+			insertAiRun(admin, ORG_A, PROJECT_A, document, USER_A, "FAILED");
+			insertAiRun(admin, ORG_A, PROJECT_A, document, USER_A, "RUNNING");
+		}
+		assertSqlState(SQLSTATE_UNIQUE_VIOLATION, USER_A, ORG_A,
+				app -> insertAiRun(app, ORG_A, PROJECT_A, document, USER_A, "QUEUED"));
+	}
+
+	@Test
+	void oneStoryCannotCreateTwoTasks() throws SQLException {
+		UUID jobRole = UUID.randomUUID();
+		UUID story;
+		try (Connection admin = adminConnection()) {
+			insertJobRole(admin, jobRole, ORG_A, "One task " + jobRole);
+			story = insertStoryWithParents(admin, ORG_A, PROJECT_A, USER_A, jobRole);
+			insertStoryTask(admin, ORG_A, PROJECT_A, USER_A, story);
+		}
+		assertSqlState(SQLSTATE_UNIQUE_VIOLATION, USER_A, ORG_A,
+				app -> insertStoryTask(app, ORG_A, PROJECT_A, USER_A, story));
+	}
+
+	@Test
+	void storiesCannotReferenceAnotherOrganizationsRoleOrTask() throws SQLException {
+		UUID roleA = UUID.randomUUID();
+		UUID roleB = UUID.randomUUID();
+		UUID story;
+		UUID document;
+		UUID analysis;
+		try (Connection admin = adminConnection()) {
+			insertJobRole(admin, roleA, ORG_A, "Boundary " + roleA);
+			insertJobRole(admin, roleB, ORG_B, "Boundary " + roleB);
+			document = insertRequirementDocument(admin, ORG_A, PROJECT_A, USER_A);
+			UUID run = insertAiRun(admin, ORG_A, PROJECT_A, document, USER_A, "SUCCEEDED");
+			analysis = UUID.randomUUID();
+			update(admin, "INSERT INTO brain.requirement_analyses (id, organization_id, document_id, analysis_version, ai_run_id, result, created_by) VALUES (?, ?, ?, 1, ?, '{}'::jsonb, ?)",
+					analysis, ORG_A, document, run, USER_A);
+			story = insertStory(admin, ORG_A, PROJECT_A, document, analysis, roleA);
+		}
+		UUID finalDocument = document;
+		UUID finalAnalysis = analysis;
+		assertSqlState(SQLSTATE_FOREIGN_KEY_VIOLATION, USER_A, ORG_A,
+				app -> insertStory(app, ORG_A, PROJECT_A, finalDocument, finalAnalysis, roleB));
+		assertSqlState(SQLSTATE_FOREIGN_KEY_VIOLATION, USER_A, ORG_A,
+				app -> update(app, "UPDATE brain.story_drafts SET task_id = ? WHERE id = ?", TASK_B, story));
+	}
+
+	@Test
+	void deletingConvertedTaskKeepsStoryAndClearsLink() throws SQLException {
+		UUID jobRole = UUID.randomUUID();
+		UUID story;
+		UUID task;
+		try (Connection admin = adminConnection()) {
+			insertJobRole(admin, jobRole, ORG_A, "Deleted task " + jobRole);
+			story = insertStoryWithParents(admin, ORG_A, PROJECT_A, USER_A, jobRole);
+			task = insertStoryTask(admin, ORG_A, PROJECT_A, USER_A, story);
+			update(admin, "UPDATE brain.story_drafts SET status = 'CONVERTED', task_id = ? WHERE id = ?", task, story);
+		}
+		asTenant(USER_A, ORG_A, app -> {
+			assertThat(update(app, "DELETE FROM brain.tasks WHERE id = ?", task)).isEqualTo(1);
+			assertThat(uuids(app, "SELECT id FROM brain.story_drafts WHERE status = 'CONVERTED' AND task_id IS NULL"))
+				.contains(story);
+		});
+	}
+
+	@Test
+	void uploadRowRequiresDummyDataConfirmation() {
+		assertSqlState(SQLSTATE_CHECK_VIOLATION, USER_A, ORG_A,
+				app -> update(app, """
+						INSERT INTO brain.requirement_documents
+						    (id, organization_id, project_id, name, media_type, size_bytes, sha256, extracted_text,
+						     dummy_data_confirmed, uploaded_by)
+						VALUES (?, ?, ?, 'real.pdf', 'application/pdf', 10, ?, 'Text', false, ?)
+						""", UUID.randomUUID(), ORG_A, PROJECT_A, tokenHash(), USER_A));
+	}
+
+	private static UUID insertRequirementDocument(Connection connection, UUID orgId, UUID projectId, UUID user)
+			throws SQLException {
+		UUID id = UUID.randomUUID();
+		update(connection, """
+				INSERT INTO brain.requirement_documents
+				    (id, organization_id, project_id, name, media_type, size_bytes, sha256, extracted_text,
+				     dummy_data_confirmed, uploaded_by)
+				VALUES (?, ?, ?, 'dummy.md', 'text/markdown', 10, ?, 'Dummy text', true, ?)
+				""", id, orgId, projectId, tokenHash(), user);
+		return id;
+	}
+
+	private static UUID insertAiRun(Connection connection, UUID orgId, UUID projectId, UUID document, UUID user,
+			String runStatus) throws SQLException {
+		UUID id = UUID.randomUUID();
+		update(connection, """
+				INSERT INTO brain.ai_runs (id, organization_id, project_id, document_id, run_type, status, requested_by)
+				VALUES (?, ?, ?, ?, 'ANALYSIS', ?, ?)
+				""", id, orgId, projectId, document, runStatus, user);
+		return id;
+	}
+
+	private static UUID insertStory(Connection connection, UUID orgId, UUID projectId, UUID document, UUID analysis,
+			UUID jobRole) throws SQLException {
+		UUID id = UUID.randomUUID();
+		update(connection, """
+				INSERT INTO brain.story_drafts
+				    (id, organization_id, project_id, document_id, analysis_id, title, as_a, i_want, so_that,
+				     acceptance_criteria, priority, job_role_id)
+				VALUES (?, ?, ?, ?, ?, 'Story', 'user', 'a feature', 'value', '["Works"]'::jsonb, 'MEDIUM', ?)
+				""", id, orgId, projectId, document, analysis, jobRole);
+		return id;
+	}
+
+	private static UUID insertStoryWithParents(Connection connection, UUID orgId, UUID projectId, UUID user, UUID jobRole)
+			throws SQLException {
+		UUID document = insertRequirementDocument(connection, orgId, projectId, user);
+		UUID run = insertAiRun(connection, orgId, projectId, document, user, "SUCCEEDED");
+		UUID analysis = UUID.randomUUID();
+		update(connection, "INSERT INTO brain.requirement_analyses (id, organization_id, document_id, analysis_version, ai_run_id, result, created_by) VALUES (?, ?, ?, 1, ?, '{}'::jsonb, ?)",
+				analysis, orgId, document, run, user);
+		return insertStory(connection, orgId, projectId, document, analysis, jobRole);
+	}
+
+	private static UUID insertStoryTask(Connection connection, UUID orgId, UUID projectId, UUID user, UUID story)
+			throws SQLException {
+		UUID task = UUID.randomUUID();
+		update(connection, """
+				INSERT INTO brain.tasks (id, organization_id, project_id, title, status, priority, created_by, source_story_id)
+				VALUES (?, ?, ?, 'From story', 'BACKLOG', 'MEDIUM', ?, ?)
+				""", task, orgId, projectId, user, story);
+		return task;
+	}
+
 	private static String tokenHash() {
 		return (UUID.randomUUID().toString() + UUID.randomUUID()).replace("-", "");
 	}
