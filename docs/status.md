@@ -1,14 +1,14 @@
 # Project Status
 
-Branch: phase-1-5-team-approvals
+Branch: main
 Phase 1: Complete
-Phase 1.5: Complete on this branch, not merged into `main`
+Phase 1.5: Complete and merged into `main` through PR #2
 Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12
-Current task: Merge Phase 1.5, then plan Phase 2
+Current task: Plan Phase 2
 Blockers: none
 Phase 1 acceptance: On 2026-11-23, 135 backend tests, 83 frontend tests and the production build passed. The developer confirmed the browser flow against Supabase and the running backend.
 Phase 1.5 acceptance: On 2026-11-23, 236 backend tests, 134 frontend tests, the production build and lint passed. A fresh review found no Critical issues, and its Important findings were fixed. The developer confirmed the two-user browser flow against Supabase and the running backend.
-Database: Migration `V3` is applied to Supabase. Run the backend from this branch until it is merged, because `main` does not contain `V3`.
+Database: Migration `V3` is applied to Supabase and is included in `main`.
 Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md` and `docs/decisions/0002-team-and-approval-model.md`.
 
 ## Known gaps
