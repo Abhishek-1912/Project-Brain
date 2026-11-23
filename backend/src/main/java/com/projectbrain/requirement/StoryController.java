@@ -72,6 +72,12 @@ class StoryController {
 		return reviews.reject(orgId, storyId, request.version(), request.comment());
 	}
 
+	@GetMapping("/stories/{storyId}/reviews")
+	PageResponse<StoryReviewService.ReviewView> reviews(@PathVariable UUID orgId, @PathVariable UUID storyId,
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "100") int size) {
+		return reviews.history(orgId, storyId, PageParams.of(page, size));
+	}
+
 	@PostMapping("/requirements/{documentId}/create-tasks")
 	StoryReviewService.CreateTasksResult createTasks(@PathVariable UUID orgId, @PathVariable UUID documentId) {
 		return reviews.createTasks(orgId, documentId);

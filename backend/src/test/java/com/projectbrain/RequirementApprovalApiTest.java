@@ -275,6 +275,68 @@ class RequirementApprovalApiTest extends TeamApiTestBase {
 	}
 
 	@Test
+	void storyListTellsEachPersonWhetherTheyCanReview() throws Exception {
+		Fixture f = fixture(true);
+		seedStory(f, "Story", "DRAFT", f.role, f.owner);
+
+		mvc.perform(get(docUrl(f) + "/stories").with(as(f.approver)))
+			.andExpect(jsonPath("$.items[0].canReview").value(true));
+		mvc.perform(get(docUrl(f) + "/stories").with(as(f.owner)))
+			.andExpect(jsonPath("$.items[0].canReview").value(false));
+		mvc.perform(get(docUrl(f) + "/stories").with(as(f.viewer)))
+			.andExpect(jsonPath("$.items[0].canReview").value(false));
+	}
+
+	@Test
+	void decidedOrArchivedStoryCannotBeReviewed() throws Exception {
+		Fixture f = fixture(true);
+		seedStory(f, "Approved", "APPROVED", f.role, f.owner);
+		mvc.perform(get(docUrl(f) + "/stories").with(as(f.approver)))
+			.andExpect(jsonPath("$.items[0].canReview").value(false));
+
+		Fixture archived = fixture(true);
+		seedStory(archived, "Draft", "DRAFT", archived.role, archived.owner);
+		execute("UPDATE brain.projects SET status = 'ARCHIVED' WHERE id = ?", archived.project);
+		mvc.perform(get(docUrl(archived) + "/stories").with(as(archived.approver)))
+			.andExpect(jsonPath("$.items[0].canReview").value(false));
+	}
+
+	@Test
+	void reviewHistoryListsDecisionsInOrder() throws Exception {
+		Fixture f = fixture(true);
+		UUID story = seedStory(f, "Story", "DRAFT", f.role, f.owner);
+		mvc.perform(decide(f, story, "reject", f.approver, "{\"version\":0,\"comment\":\"Too vague\"}"))
+			.andExpect(status().isOk());
+
+		mvc.perform(get(ORGS + "/" + f.org + "/stories/" + story + "/reviews").with(as(f.viewer)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].action").value("REJECTED"))
+			.andExpect(jsonPath("$.items[0].actorId").value(f.approver.toString()))
+			.andExpect(jsonPath("$.items[0].comment").value("Too vague"))
+			.andExpect(jsonPath("$.items[0].storyVersion").value(0));
+
+		Fixture other = fixture(true);
+		mvc.perform(get(ORGS + "/" + other.org + "/stories/" + story + "/reviews").with(as(other.owner)))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void analysisStateIncludesLatestStoryRun() throws Exception {
+		Fixture f = fixture(true);
+		String body = mvc.perform(post(docUrl(f) + "/stories/generate").with(as(f.owner)))
+			.andExpect(status().isAccepted())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		String run = JsonPath.read(body, "$.runId");
+		awaitSucceeded(f, UUID.fromString(run));
+
+		mvc.perform(get(docUrl(f) + "/analysis").with(as(f.owner)))
+			.andExpect(jsonPath("$.latestStoryRun.id").value(run))
+			.andExpect(jsonPath("$.latestRun.runType").value("ANALYSIS"));
+	}
+
+	@Test
 	void anotherOrganizationsStoryReturns404() throws Exception {
 		Fixture f = fixture(true);
 		Fixture other = fixture(true);

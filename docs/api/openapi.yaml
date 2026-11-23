@@ -981,6 +981,30 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/stories/{storyId}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Requirements]
+      operationId: listStoryReviews
+      summary: List a story's review history, oldest first
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Story review history
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryReviewPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /organizations/{orgId}/stories/{storyId}/approve:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -1540,7 +1564,7 @@ components:
         verified: { type: boolean }
     StoryDraft:
       type: object
-      required: [id, documentId, analysisId, title, asA, iWant, soThat, acceptanceCriteria, priority, jobRoleId, sourceQuotes, status, taskId, createdAt, updatedAt, version]
+      required: [id, documentId, analysisId, title, asA, iWant, soThat, acceptanceCriteria, priority, jobRoleId, sourceQuotes, status, taskId, generatedBy, createdAt, updatedAt, version, canReview]
       properties:
         id: { type: string, format: uuid }
         documentId: { type: string, format: uuid }
@@ -1559,9 +1583,13 @@ components:
           items: { $ref: '#/components/schemas/StorySourceQuote' }
         status: { type: string, enum: [DRAFT, APPROVED, REJECTED, CONVERTED] }
         taskId: { type: [string, 'null'], format: uuid }
+        generatedBy: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, format: int64 }
+        canReview:
+          type: boolean
+          description: True when the signed-in user can approve or reject this story now.
     StoryDraftPage:
       type: object
       required: [items, page, size, totalItems]
@@ -1588,6 +1616,30 @@ components:
         priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
         jobRoleId: { type: [string, 'null'], format: uuid }
         version: { type: integer, format: int64 }
+    StoryReview:
+      type: object
+      required: [id, storyVersion, action, actorId, approvalBasis, selfApproved, comment, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        storyVersion: { type: integer, format: int64 }
+        action: { type: string, enum: [SUBMITTED, APPROVED, REJECTED, REOPENED] }
+        actorId: { type: string, format: uuid }
+        approvalBasis:
+          type: [string, 'null']
+          enum: [ROLE_HOLDER, OWNER_FALLBACK, null]
+        selfApproved: { type: boolean }
+        comment: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    StoryReviewPage:
+      type: object
+      required: [items, page, size, totalItems]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/StoryReview' }
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
     StoryApproval:
       type: object
       required: [version]
@@ -1613,7 +1665,7 @@ components:
               taskId: { type: string, format: uuid }
     RequirementAnalysisState:
       type: object
-      required: [analysis, questions, latestRun]
+      required: [analysis, questions, latestRun, latestStoryRun]
       properties:
         analysis:
           anyOf:
@@ -1623,6 +1675,10 @@ components:
           type: array
           items: { $ref: '#/components/schemas/ClarificationQuestion' }
         latestRun:
+          anyOf:
+            - $ref: '#/components/schemas/AiRun'
+            - type: 'null'
+        latestStoryRun:
           anyOf:
             - $ref: '#/components/schemas/AiRun'
             - type: 'null'

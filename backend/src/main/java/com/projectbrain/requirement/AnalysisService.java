@@ -64,7 +64,8 @@ class AnalysisService {
 				.optional();
 			List<QuestionView> questions = analysis.map(found -> questions(orgId, found.id())).orElse(List.of());
 			return new AnalysisResponse(analysis.orElse(null), questions,
-					runStore.latest(orgId, documentId, "ANALYSIS").orElse(null));
+					runStore.latest(orgId, documentId, "ANALYSIS").orElse(null),
+					runStore.latest(orgId, documentId, "STORIES").orElse(null));
 		});
 	}
 
@@ -289,7 +290,8 @@ class AnalysisService {
 			long version) {
 	}
 
-	record AnalysisResponse(AnalysisView analysis, List<QuestionView> questions, RunView latestRun) {
+	record AnalysisResponse(AnalysisView analysis, List<QuestionView> questions, RunView latestRun,
+			RunView latestStoryRun) {
 	}
 
 }

@@ -1,6 +1,7 @@
 package com.projectbrain.requirement;
 
 import java.sql.Types;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,8 @@ import com.projectbrain.requirement.StoryService.StoryView;
 import com.projectbrain.shared.web.ConflictException;
 import com.projectbrain.shared.web.ForbiddenException;
 import com.projectbrain.shared.web.NotFoundException;
+import com.projectbrain.shared.web.PageParams;
+import com.projectbrain.shared.web.PageResponse;
 import com.projectbrain.shared.web.UnprocessableException;
 import com.projectbrain.task.api.TaskCreator;
 import com.projectbrain.team.api.Approvers;
@@ -103,6 +106,45 @@ class StoryReviewService {
 			auditLog.record(orgId, "STORY_REJECTED", "STORY", storyId,
 					Map.of("storyVersion", target.version(), "basis", approvers.basis().name()));
 			return stories.load(orgId, storyId);
+		});
+	}
+
+	PageResponse<ReviewView> history(UUID orgId, UUID storyId, PageParams paging) {
+		return orgTx.inOrg(orgId, Permission.VIEW, () -> {
+			boolean exists = jdbc.sql("""
+					SELECT EXISTS (SELECT 1 FROM brain.story_drafts WHERE organization_id = :orgId AND id = :id)
+					""")
+				.param("orgId", orgId)
+				.param("id", storyId)
+				.query(Boolean.class)
+				.single();
+			if (!exists) {
+				throw new NotFoundException("Story not found.");
+			}
+			long total = jdbc.sql("""
+					SELECT count(*) FROM brain.story_reviews WHERE organization_id = :orgId AND story_id = :storyId
+					""")
+				.param("orgId", orgId)
+				.param("storyId", storyId)
+				.query(Long.class)
+				.single();
+			List<ReviewView> items = jdbc.sql("""
+					SELECT id, story_version, action, actor_id, approval_basis, self_approved, comment, created_at
+					FROM brain.story_reviews
+					WHERE organization_id = :orgId AND story_id = :storyId
+					ORDER BY created_at, id
+					LIMIT :limit OFFSET :offset
+					""")
+				.param("orgId", orgId)
+				.param("storyId", storyId)
+				.param("limit", paging.size())
+				.param("offset", paging.offset())
+				.query((row, rowNumber) -> new ReviewView(row.getObject("id", UUID.class), row.getLong("story_version"),
+						row.getString("action"), row.getObject("actor_id", UUID.class), row.getString("approval_basis"),
+						row.getBoolean("self_approved"), row.getString("comment"),
+						row.getObject("created_at", OffsetDateTime.class)))
+				.list();
+			return new PageResponse<>(items, paging.page(), paging.size(), total);
 		});
 	}
 
@@ -263,6 +305,10 @@ class StoryReviewService {
 
 	private static String sentence(String value) {
 		return value.replaceAll("[.\\s]+$", "");
+	}
+
+	record ReviewView(UUID id, long storyVersion, String action, UUID actorId, String approvalBasis, boolean selfApproved,
+			String comment, OffsetDateTime createdAt) {
 	}
 
 	record CreatedTask(UUID storyId, UUID taskId) {

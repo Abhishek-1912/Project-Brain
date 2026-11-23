@@ -3,6 +3,7 @@ package com.projectbrain.requirement;
 import java.sql.Types;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -12,8 +13,11 @@ import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
 import com.projectbrain.identity.api.CurrentUserProvider;
+import com.projectbrain.organization.api.ApprovalSettings;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
+import com.projectbrain.project.api.ProjectLookup;
+import com.projectbrain.project.api.ProjectStatus;
 import com.projectbrain.requirement.AiServiceClient.StoriesRequest;
 import com.projectbrain.requirement.AnalysisService.AnalysisInput;
 import com.projectbrain.requirement.AnalysisService.StoryBasis;
@@ -23,6 +27,7 @@ import com.projectbrain.shared.web.PageParams;
 import com.projectbrain.shared.web.PageResponse;
 import com.projectbrain.shared.web.UnprocessableException;
 import com.projectbrain.team.api.JobRoleLookup;
+import com.projectbrain.team.api.ProjectTeamLookup;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -47,7 +52,8 @@ class StoryService {
 
 	private static final String COLUMNS = """
 			id, document_id, analysis_id, title, as_a, i_want, so_that, acceptance_criteria::text AS acceptance_criteria,
-			priority, job_role_id, source_quotes::text AS source_quotes, status, task_id, created_at, updated_at, version
+			priority, job_role_id, source_quotes::text AS source_quotes, status, task_id, generated_by, created_at,
+			updated_at, version
 			""";
 
 	private final OrgTx orgTx;
@@ -66,10 +72,17 @@ class StoryService {
 
 	private final JsonMapper json;
 
+	private final ProjectTeamLookup team;
+
+	private final ApprovalSettings approvalSettings;
+
+	private final ProjectLookup projects;
+
 	private final RowMapper<StoryView> mapper;
 
 	StoryService(OrgTx orgTx, JdbcClient jdbc, AnalysisService analyses, RequirementAccess access, JobRoleLookup jobRoles,
-			CurrentUserProvider currentUser, AuditLog auditLog, JsonMapper json) {
+			CurrentUserProvider currentUser, AuditLog auditLog, JsonMapper json, ProjectTeamLookup team,
+			ApprovalSettings approvalSettings, ProjectLookup projects) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.analyses = analyses;
@@ -78,14 +91,17 @@ class StoryService {
 		this.currentUser = currentUser;
 		this.auditLog = auditLog;
 		this.json = json;
+		this.team = team;
+		this.approvalSettings = approvalSettings;
+		this.projects = projects;
 		this.mapper = (row, rowNumber) -> new StoryView(row.getObject("id", UUID.class),
 				row.getObject("document_id", UUID.class), row.getObject("analysis_id", UUID.class),
 				row.getString("title"), row.getString("as_a"), row.getString("i_want"), row.getString("so_that"),
 				json.readTree(row.getString("acceptance_criteria")), row.getString("priority"),
 				row.getObject("job_role_id", UUID.class), json.readTree(row.getString("source_quotes")),
 				row.getString("status"), row.getObject("task_id", UUID.class),
-				row.getObject("created_at", OffsetDateTime.class), row.getObject("updated_at", OffsetDateTime.class),
-				row.getLong("version"));
+				row.getObject("generated_by", UUID.class), row.getObject("created_at", OffsetDateTime.class),
+				row.getObject("updated_at", OffsetDateTime.class), row.getLong("version"), false);
 	}
 
 	PageResponse<StoryView> list(UUID orgId, UUID documentId, PageParams paging) {
@@ -111,7 +127,7 @@ class StoryService {
 				.param("offset", paging.offset())
 				.query(mapper)
 				.list();
-			return new PageResponse<>(items, paging.page(), paging.size(), total);
+			return new PageResponse<>(withReviewAccess(orgId, items), paging.page(), paging.size(), total);
 		});
 	}
 
@@ -295,11 +311,46 @@ class StoryService {
 
 	/** Must run inside an organization transaction. */
 	StoryView load(UUID orgId, UUID storyId) {
-		return jdbc.sql("SELECT " + COLUMNS + " FROM brain.story_drafts WHERE organization_id = :orgId AND id = :id")
+		StoryView story = jdbc.sql("SELECT " + COLUMNS + " FROM brain.story_drafts WHERE organization_id = :orgId AND id = :id")
 			.param("orgId", orgId)
 			.param("id", storyId)
 			.query(mapper)
 			.single();
+		return withReviewAccess(orgId, List.of(story)).get(0);
+	}
+
+	/** Uses the same approver rules as a real decision, so the screen never offers a button the API would refuse. */
+	private List<StoryView> withReviewAccess(UUID orgId, List<StoryView> items) {
+		if (items.isEmpty()) {
+			return items;
+		}
+		UUID actor = currentUser.get().id();
+		record DocumentRef(UUID projectId, UUID approverRole) {
+		}
+		DocumentRef document = jdbc.sql("""
+				SELECT project_id, approver_job_role_id FROM brain.requirement_documents
+				WHERE organization_id = :orgId AND id = :id
+				""")
+			.param("orgId", orgId)
+			.param("id", items.get(0).documentId())
+			.query((row, rowNumber) -> new DocumentRef(row.getObject("project_id", UUID.class),
+					row.getObject("approver_job_role_id", UUID.class)))
+			.single();
+		if (projects.requireStatus(orgId, document.projectId()) == ProjectStatus.ARCHIVED) {
+			return items;
+		}
+		boolean allowSelf = approvalSettings.allowsSelfApproval(orgId);
+		Map<UUID, Boolean> eligibleBySubmitter = new HashMap<>();
+		return items.stream().map(story -> {
+			if (!"DRAFT".equals(story.status())) {
+				return story;
+			}
+			boolean eligible = eligibleBySubmitter.computeIfAbsent(story.generatedBy(), submitter -> team
+				.approvers(orgId, document.projectId(), document.approverRole(), submitter, allowSelf)
+				.userIds()
+				.contains(actor));
+			return story.withCanReview(eligible);
+		}).toList();
 	}
 
 	private static void validate(StoryUpdate update) {
@@ -383,7 +434,14 @@ class StoryService {
 
 	record StoryView(UUID id, UUID documentId, UUID analysisId, String title, String asA, String iWant, String soThat,
 			JsonNode acceptanceCriteria, String priority, UUID jobRoleId, JsonNode sourceQuotes, String status,
-			UUID taskId, OffsetDateTime createdAt, OffsetDateTime updatedAt, long version) {
+			UUID taskId, UUID generatedBy, OffsetDateTime createdAt, OffsetDateTime updatedAt, long version,
+			boolean canReview) {
+
+		StoryView withCanReview(boolean value) {
+			return new StoryView(id, documentId, analysisId, title, asA, iWant, soThat, acceptanceCriteria, priority,
+					jobRoleId, sourceQuotes, status, taskId, generatedBy, createdAt, updatedAt, version, value);
+		}
+
 	}
 
 	private record Target(String status, long version, UUID projectId, UUID documentId, UUID approverRole) {

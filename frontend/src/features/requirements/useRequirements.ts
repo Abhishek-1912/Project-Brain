@@ -6,6 +6,9 @@ export type RequirementDocument = components['schemas']['RequirementDocument']
 export type AiRun = components['schemas']['AiRun']
 export type ClarificationQuestion = components['schemas']['ClarificationQuestion']
 export type RequirementAnalysisState = components['schemas']['RequirementAnalysisState']
+export type Story = components['schemas']['StoryDraft']
+export type StoryUpdate = components['schemas']['StoryUpdate']
+export type StoryReview = components['schemas']['StoryReview']
 
 export interface AnalysisItem {
   text: string
@@ -149,5 +152,129 @@ export function useAnswerClarification(orgId: string, documentId: string) {
       return data!
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: analysisKey(orgId, documentId) }),
+  })
+}
+
+const storiesKey = (orgId: string, documentId: string) => ['stories', orgId, documentId] as const
+const storyReviewsKey = (orgId: string, storyId: string) => ['story-reviews', orgId, storyId] as const
+
+export function useStories(orgId: string, documentId: string) {
+  return useQuery({
+    queryKey: storiesKey(orgId, documentId),
+    queryFn: async () => {
+      const { data } = await api.GET('/organizations/{orgId}/requirements/{documentId}/stories', {
+        params: { path: { orgId, documentId }, query: { size: 100 } },
+      })
+      return data!
+    },
+  })
+}
+
+export function useStoryReviews(orgId: string, storyId: string) {
+  return useQuery({
+    queryKey: storyReviewsKey(orgId, storyId),
+    queryFn: async () => {
+      const { data } = await api.GET('/organizations/{orgId}/stories/{storyId}/reviews', {
+        params: { path: { orgId, storyId }, query: { size: 100 } },
+      })
+      return data!.items
+    },
+  })
+}
+
+export function useRefreshStories(orgId: string, documentId: string) {
+  const queryClient = useQueryClient()
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: storiesKey(orgId, documentId) }),
+      queryClient.invalidateQueries({ queryKey: analysisKey(orgId, documentId) }),
+    ])
+}
+
+export function useGenerateStories(orgId: string, documentId: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.POST('/organizations/{orgId}/requirements/{documentId}/stories/generate', {
+        params: { path: { orgId, documentId } },
+      })
+      return data!.runId
+    },
+  })
+}
+
+function useStoryChanged(orgId: string, documentId: string) {
+  const queryClient = useQueryClient()
+  return (story: Story) =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: storiesKey(orgId, documentId) }),
+      queryClient.invalidateQueries({ queryKey: storyReviewsKey(orgId, story.id) }),
+    ])
+}
+
+export function useUpdateStory(orgId: string, documentId: string) {
+  const onSuccess = useStoryChanged(orgId, documentId)
+  return useMutation({
+    mutationFn: async ({ storyId, body }: { storyId: string; body: StoryUpdate }) => {
+      const { data } = await api.PATCH('/organizations/{orgId}/stories/{storyId}', {
+        params: { path: { orgId, storyId } },
+        body,
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useApproveStory(orgId: string, documentId: string) {
+  const onSuccess = useStoryChanged(orgId, documentId)
+  return useMutation({
+    mutationFn: async ({ storyId, version }: { storyId: string; version: number }) => {
+      const { data } = await api.POST('/organizations/{orgId}/stories/{storyId}/approve', {
+        params: { path: { orgId, storyId } },
+        body: { version },
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useRejectStory(orgId: string, documentId: string) {
+  const onSuccess = useStoryChanged(orgId, documentId)
+  return useMutation({
+    mutationFn: async ({
+      storyId,
+      version,
+      comment,
+    }: {
+      storyId: string
+      version: number
+      comment: string
+    }) => {
+      const { data } = await api.POST('/organizations/{orgId}/stories/{storyId}/reject', {
+        params: { path: { orgId, storyId } },
+        body: { version, comment },
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useCreateTasksFromStories(orgId: string, projectId: string, documentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.POST('/organizations/{orgId}/requirements/{documentId}/create-tasks', {
+        params: { path: { orgId, documentId } },
+      })
+      return data!.created
+    },
+    // A failed or repeated request may still have changed stories, so always re-read them.
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: storiesKey(orgId, documentId) }),
+        queryClient.invalidateQueries({ queryKey: ['tasks', orgId, projectId] }),
+      ]),
   })
 }

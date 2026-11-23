@@ -10,6 +10,7 @@ import { useProject } from '../projects/useProjects'
 import { useProjectTeam } from '../team/useProjectTeam'
 import { AnalysisView } from './AnalysisView'
 import { ClarificationList } from './ClarificationList'
+import { StoryList } from './StoryList'
 import { primaryButton, TestModeBanner } from './TestModeBanner'
 import {
   analysisKey,
@@ -159,6 +160,15 @@ function RequirementDetail({ projectId, documentId }: { projectId: string; docum
             documentId={documentId}
             questions={analysis.data.questions}
             canAnswer={canAnswer}
+          />
+          <StoryList
+            orgId={org.id}
+            projectId={projectId}
+            documentId={documentId}
+            latestRun={analysis.data.latestStoryRun ?? null}
+            canEdit={canAnswer}
+            canGenerate={canRun}
+            archived={archived}
           />
         </>
       ) : (

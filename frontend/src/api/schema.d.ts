@@ -720,6 +720,27 @@ export interface paths {
         patch: operations["updateStory"];
         trace?: never;
     };
+    "/organizations/{orgId}/stories/{storyId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        /** List a story's review history, oldest first */
+        get: operations["listStoryReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{orgId}/stories/{storyId}/approve": {
         parameters: {
             query?: never;
@@ -1161,12 +1182,16 @@ export interface components {
             status: "DRAFT" | "APPROVED" | "REJECTED" | "CONVERTED";
             /** Format: uuid */
             taskId: string | null;
+            /** Format: uuid */
+            generatedBy: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
             /** Format: int64 */
             version: number;
+            /** @description True when the signed-in user can approve or reject this story now. */
+            canReview: boolean;
         };
         StoryDraftPage: {
             items: components["schemas"]["StoryDraft"][];
@@ -1187,6 +1212,29 @@ export interface components {
             jobRoleId?: string | null;
             /** Format: int64 */
             version: number;
+        };
+        StoryReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            storyVersion: number;
+            /** @enum {string} */
+            action: "SUBMITTED" | "APPROVED" | "REJECTED" | "REOPENED";
+            /** Format: uuid */
+            actorId: string;
+            /** @enum {string|null} */
+            approvalBasis: "ROLE_HOLDER" | "OWNER_FALLBACK" | null;
+            selfApproved: boolean;
+            comment: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        StoryReviewPage: {
+            items: components["schemas"]["StoryReview"][];
+            page: number;
+            size: number;
+            /** Format: int64 */
+            totalItems: number;
         };
         StoryApproval: {
             /** Format: int64 */
@@ -1209,6 +1257,7 @@ export interface components {
             analysis: components["schemas"]["RequirementAnalysis"] | null;
             questions: components["schemas"]["ClarificationQuestion"][];
             latestRun: components["schemas"]["AiRun"] | null;
+            latestStoryRun: components["schemas"]["AiRun"] | null;
         };
         RequirementDocument: {
             /** Format: uuid */
@@ -2820,6 +2869,38 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listStoryReviews: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Story review history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryReviewPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
         };
     };
