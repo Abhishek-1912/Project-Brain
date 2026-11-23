@@ -277,6 +277,174 @@ class RlsIsolationTest extends PostgresTestBase {
 				"audit_events");
 	}
 
+	@Test
+	void organizationBCannotReadJobRolesInvitesTeamsOrReviews() throws SQLException {
+		UUID jobRole = UUID.randomUUID();
+		try (Connection admin = adminConnection()) {
+			insertJobRole(admin, jobRole, ORG_B, "Isolation " + jobRole);
+			update(admin, "INSERT INTO brain.project_job_roles (organization_id, project_id, user_id, job_role_id, created_by) VALUES (?, ?, ?, ?, ?)",
+					ORG_B, PROJECT_B, USER_B, jobRole, USER_B);
+			insertInvite(admin, ORG_B, "hidden-" + jobRole + "@example.test", "MEMBER", tokenHash(), "now() + interval '7 days'");
+			insertReview(admin, ORG_B, PROJECT_B, TASK_B, jobRole, USER_B);
+		}
+		asTenant(USER_A, ORG_A, app -> {
+			assertThat(countForOrg(app, "brain.job_roles", ORG_B)).isZero();
+			assertThat(countForOrg(app, "brain.project_job_roles", ORG_B)).isZero();
+			assertThat(countForOrg(app, "brain.organization_invites", ORG_B)).isZero();
+			assertThat(countForOrg(app, "brain.task_reviews", ORG_B)).isZero();
+		});
+	}
+
+	@Test
+	void appRoleCannotUpdateOrDeleteTaskReviews() throws SQLException {
+		UUID jobRole = UUID.randomUUID();
+		try (Connection admin = adminConnection()) {
+			insertJobRole(admin, jobRole, ORG_A, "Append only " + jobRole);
+			insertReview(admin, ORG_A, PROJECT_A, TASK_A, jobRole, USER_A);
+		}
+		assertSqlState(SQLSTATE_INSUFFICIENT_PRIVILEGE, USER_A, ORG_A,
+				app -> update(app, "UPDATE brain.task_reviews SET comment = 'changed' WHERE job_role_id = ?", jobRole));
+		assertSqlState(SQLSTATE_INSUFFICIENT_PRIVILEGE, USER_A, ORG_A,
+				app -> update(app, "DELETE FROM brain.task_reviews WHERE job_role_id = ?", jobRole));
+	}
+
+	@Test
+	void memberInsertRequiresMatchingPendingInviteHash() throws SQLException {
+		UUID invitee = UUID.randomUUID();
+		String hash = tokenHash();
+		try (Connection admin = adminConnection()) {
+			update(admin, "INSERT INTO brain.profiles (id, email, display_name) VALUES (?, ?, 'Invitee')", invitee,
+					"ravi-" + invitee + "@example.test");
+			insertInvite(admin, ORG_A, "RAVI-" + invitee + "@Example.test", "MEMBER", hash, "now() + interval '7 days'");
+		}
+		asInvitee(invitee, hash, app -> assertThat(insertMember(app, ORG_A, invitee, "MEMBER")).isEqualTo(1));
+		assertInviteRejected(invitee, tokenHash(), "MEMBER");
+		assertInviteRejected(invitee, hash, "ADMIN");
+		assertInviteRejected(invitee, hash, "OWNER");
+	}
+
+	@Test
+	void expiredCancelledOrUsedInviteCannotCreateMember() throws SQLException {
+		UUID invitee = UUID.randomUUID();
+		String email = "late-" + invitee + "@example.test";
+		String cancelled = tokenHash();
+		String used = tokenHash();
+		String expired = tokenHash();
+		try (Connection admin = adminConnection()) {
+			update(admin, "INSERT INTO brain.profiles (id, email, display_name) VALUES (?, ?, 'Invitee')", invitee, email);
+			insertInvite(admin, ORG_A, email, "MEMBER", cancelled, "now() + interval '7 days'");
+			update(admin, "UPDATE brain.organization_invites SET cancelled_by = ?, cancelled_at = now() WHERE token_hash = ?",
+					USER_A, cancelled);
+			insertInvite(admin, ORG_A, email, "MEMBER", used, "now() + interval '7 days'");
+			update(admin, "UPDATE brain.organization_invites SET accepted_by = ?, accepted_at = now() WHERE token_hash = ?",
+					USER_A2, used);
+			insertInvite(admin, ORG_A, email, "MEMBER", expired, "now() - interval '1 second'");
+		}
+		assertInviteRejected(invitee, cancelled, "MEMBER");
+		assertInviteRejected(invitee, used, "MEMBER");
+		assertInviteRejected(invitee, expired, "MEMBER");
+	}
+
+	@Test
+	void inviteForAnotherEmailCannotCreateMember() throws SQLException {
+		UUID invitee = UUID.randomUUID();
+		String hash = tokenHash();
+		try (Connection admin = adminConnection()) {
+			update(admin, "INSERT INTO brain.profiles (id, email, display_name) VALUES (?, ?, 'Invitee')", invitee,
+					"attacker-" + invitee + "@example.test");
+			insertInvite(admin, ORG_A, "victim-" + invitee + "@example.test", "MEMBER", hash, "now() + interval '7 days'");
+		}
+		assertInviteRejected(invitee, hash, "MEMBER");
+	}
+
+	@Test
+	void existingOrganizationsReceiveSixDefaultJobRoles() throws SQLException {
+		String url = createBootstrappedDatabase("backfill_" + UUID.randomUUID().toString().replace("-", ""));
+		migrate(url, "2");
+		UUID user = UUID.randomUUID();
+		UUID org = UUID.randomUUID();
+		try (Connection admin = adminConnection(url)) {
+			update(admin, "INSERT INTO brain.profiles (id, email, display_name) VALUES (?, 'old@example.test', 'Old')", user);
+			update(admin, "INSERT INTO brain.organizations (id, name, slug, created_by) VALUES (?, 'Old Org', 'old-org', ?)", org, user);
+		}
+
+		migrate(url, "latest");
+
+		Set<String> names = new HashSet<>();
+		try (Connection admin = adminConnection(url);
+				PreparedStatement statement = admin
+					.prepareStatement("SELECT name FROM brain.job_roles WHERE organization_id = ? AND active")) {
+			statement.setObject(1, org);
+			try (ResultSet rows = statement.executeQuery()) {
+				while (rows.next()) {
+					names.add(rows.getString(1));
+				}
+			}
+		}
+		assertThat(names).containsExactlyInAnyOrder("Project Manager", "Architect", "Backend", "Frontend", "QA", "DevOps");
+	}
+
+	private static String tokenHash() {
+		return (UUID.randomUUID().toString() + UUID.randomUUID()).replace("-", "");
+	}
+
+	private static void insertJobRole(Connection connection, UUID id, UUID orgId, String name) throws SQLException {
+		update(connection, "INSERT INTO brain.job_roles (id, organization_id, name) VALUES (?, ?, ?)", id, orgId, name);
+	}
+
+	private static void insertInvite(Connection connection, UUID orgId, String email, String role, String hash,
+			String expiresAtSql) throws SQLException {
+		UUID creator = orgId.equals(ORG_A) ? USER_A : USER_B;
+		update(connection, "INSERT INTO brain.organization_invites (id, organization_id, email, role, token_hash, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?, "
+				+ expiresAtSql + ")", UUID.randomUUID(), orgId, email, role, hash, creator);
+	}
+
+	private static void insertReview(Connection connection, UUID orgId, UUID projectId, UUID taskId, UUID jobRole,
+			UUID actor) throws SQLException {
+		update(connection, "INSERT INTO brain.task_reviews (id, organization_id, project_id, task_id, task_version, action, actor_id, job_role_id) VALUES (?, ?, ?, ?, 0, 'SUBMITTED', ?, ?)",
+				UUID.randomUUID(), orgId, projectId, taskId, actor, jobRole);
+	}
+
+	private static int insertMember(Connection connection, UUID orgId, UUID userId, String role) throws SQLException {
+		return update(connection, "INSERT INTO brain.organization_members (organization_id, user_id, role) VALUES (?, ?, ?)",
+				orgId, userId, role);
+	}
+
+	private static long countForOrg(Connection connection, String table, UUID orgId) throws SQLException {
+		try (PreparedStatement statement = connection
+			.prepareStatement("SELECT count(*) FROM " + table + " WHERE organization_id = ?")) {
+			statement.setObject(1, orgId);
+			try (ResultSet rows = statement.executeQuery()) {
+				rows.next();
+				return rows.getLong(1);
+			}
+		}
+	}
+
+	private static void assertInviteRejected(UUID invitee, String hash, String role) {
+		assertThatThrownBy(() -> asInvitee(invitee, hash, app -> insertMember(app, ORG_A, invitee, role)))
+			.isInstanceOfSatisfying(SQLException.class,
+					ex -> assertThat(ex.getSQLState()).isEqualTo(SQLSTATE_INSUFFICIENT_PRIVILEGE));
+	}
+
+	private static void asInvitee(UUID userId, String hash, SqlWork work) throws SQLException {
+		try (Connection app = appConnection()) {
+			app.setAutoCommit(false);
+			setContext(app, userId, null);
+			try (PreparedStatement statement = app
+				.prepareStatement("SELECT set_config('app.current_invite_hash', ?, true)")) {
+				statement.setString(1, hash);
+				statement.execute();
+			}
+			try {
+				work.run(app);
+			}
+			finally {
+				app.rollback();
+			}
+		}
+	}
+
 	/** Runs work in a transaction with tenant context, then rolls back so cases stay independent. */
 	private static void asTenant(UUID userId, UUID orgId, SqlWork work) throws SQLException {
 		try (Connection app = appConnection()) {
