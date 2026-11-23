@@ -48,6 +48,9 @@ public class Task {
 	@Column(name = "due_date")
 	private LocalDate dueDate;
 
+	@Column(name = "responsible_job_role_id")
+	private UUID responsibleJobRoleId;
+
 	@Column(name = "created_by", nullable = false, updatable = false)
 	private UUID createdBy;
 
@@ -65,7 +68,7 @@ public class Task {
 	}
 
 	Task(UUID id, UUID organizationId, UUID projectId, String title, String description, TaskStatus status,
-			TaskPriority priority, UUID assigneeId, LocalDate dueDate, UUID createdBy) {
+			TaskPriority priority, UUID assigneeId, LocalDate dueDate, UUID responsibleJobRoleId, UUID createdBy) {
 		this.id = id;
 		this.organizationId = organizationId;
 		this.projectId = projectId;
@@ -75,6 +78,7 @@ public class Task {
 		this.priority = priority;
 		this.assigneeId = assigneeId;
 		this.dueDate = dueDate;
+		this.responsibleJobRoleId = responsibleJobRoleId;
 		this.createdBy = createdBy;
 	}
 
@@ -152,6 +156,14 @@ public class Task {
 
 	void setDueDate(LocalDate dueDate) {
 		this.dueDate = dueDate;
+	}
+
+	UUID getResponsibleJobRoleId() {
+		return responsibleJobRoleId;
+	}
+
+	void setResponsibleJobRoleId(UUID responsibleJobRoleId) {
+		this.responsibleJobRoleId = responsibleJobRoleId;
 	}
 
 	UUID getCreatedBy() {

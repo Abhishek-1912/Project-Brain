@@ -53,6 +53,14 @@ class OrganizationController {
 		return organizations.update(orgId, request.name(), request.version());
 	}
 
+	@PatchMapping("/{orgId}/settings")
+	Organization updateSettings(@PathVariable UUID orgId, @Valid @RequestBody SettingsPatch request) {
+		return organizations.updateSettings(orgId, request.allowSelfApproval(), request.version());
+	}
+
+	record SettingsPatch(@NotNull Boolean allowSelfApproval, @NotNull Long version) {
+	}
+
 	record CreateRequest(@NotBlank @Size(max = 120) String name,
 			@NotNull @Size(min = 3, max = 63) @Pattern(regexp = "^[a-z0-9]+(-[a-z0-9]+)*$") String slug) {
 	}

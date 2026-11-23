@@ -86,6 +86,7 @@ function renderPage(role: Role = 'ADMIN', search = '') {
     id: ORG,
     name: 'Acme Labs',
     slug: 'acme-labs',
+    allowSelfApproval: true,
     role,
     createdBy: ASHA,
     createdAt: '2026-11-20T10:00:00Z',

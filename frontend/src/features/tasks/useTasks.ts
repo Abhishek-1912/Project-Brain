@@ -104,6 +104,8 @@ function useRefreshTasks(orgId: string, projectId: string) {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: taskKeys.all(orgId, projectId) }),
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(orgId, projectId) }),
+      queryClient.invalidateQueries({ queryKey: ['reviews', orgId] }),
+      queryClient.invalidateQueries({ queryKey: ['task-reviews', orgId] }),
     ])
 }
 

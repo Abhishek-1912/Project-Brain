@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 import org.flywaydb.core.Flyway;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -63,6 +64,36 @@ public abstract class PostgresTestBase {
 		registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.flyway.user", () -> MIGRATOR_USER);
 		registry.add("spring.flyway.password", () -> MIGRATOR_PASSWORD);
+	}
+
+	/** Creates an empty, bootstrapped database so a test can migrate it step by step. */
+	protected static String createBootstrappedDatabase(String name) throws SQLException {
+		try (Connection admin = adminConnection(); Statement statement = admin.createStatement()) {
+			statement.execute("CREATE DATABASE " + name);
+		}
+		String url = POSTGRES.getJdbcUrl().replace("/" + POSTGRES.getDatabaseName() + "?", "/" + name + "?");
+		try (Connection admin = DriverManager.getConnection(url, POSTGRES.getUsername(), POSTGRES.getPassword());
+				Statement statement = admin.createStatement()) {
+			statement.execute("CREATE SCHEMA brain AUTHORIZATION " + MIGRATOR_USER);
+			statement.execute("REVOKE ALL ON SCHEMA brain FROM PUBLIC");
+			statement.execute("GRANT USAGE ON SCHEMA brain TO " + APP_USER);
+		}
+		return url;
+	}
+
+	protected static void migrate(String url, String targetVersion) {
+		Flyway.configure()
+			.dataSource(url, MIGRATOR_USER, MIGRATOR_PASSWORD)
+			.defaultSchema("brain")
+			.schemas("brain")
+			.createSchemas(false)
+			.target(targetVersion)
+			.load()
+			.migrate();
+	}
+
+	protected static Connection adminConnection(String url) throws SQLException {
+		return DriverManager.getConnection(url, POSTGRES.getUsername(), POSTGRES.getPassword());
 	}
 
 	protected static Connection appConnection() throws SQLException {

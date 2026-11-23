@@ -8,10 +8,18 @@ import com.projectbrain.organization.api.Permission;
 import com.projectbrain.organization.api.Role;
 import com.projectbrain.shared.web.PageParams;
 import com.projectbrain.shared.web.PageResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -21,9 +29,12 @@ class MemberController {
 
 	private final JdbcClient jdbc;
 
-	MemberController(OrgTx orgTx, JdbcClient jdbc) {
+	private final MemberService members;
+
+	MemberController(OrgTx orgTx, JdbcClient jdbc, MemberService members) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
+		this.members = members;
 	}
 
 	@GetMapping("/api/v1/organizations/{orgId}/members")
@@ -36,7 +47,7 @@ class MemberController {
 				.query(Long.class)
 				.single();
 			List<Member> items = jdbc.sql("""
-					SELECT m.user_id, p.email, COALESCE(p.display_name, p.email) AS display_name, m.role
+					SELECT m.user_id, p.email, COALESCE(p.display_name, p.email) AS display_name, m.role, m.version
 					FROM brain.organization_members m
 					JOIN brain.profiles p ON p.id = m.user_id
 					WHERE m.organization_id = :orgId
@@ -47,13 +58,27 @@ class MemberController {
 				.param("limit", paging.size())
 				.param("offset", paging.offset())
 				.query((row, rowNumber) -> new Member(row.getObject("user_id", UUID.class), row.getString("email"),
-						row.getString("display_name"), Role.valueOf(row.getString("role"))))
+						row.getString("display_name"), Role.valueOf(row.getString("role")), row.getLong("version")))
 				.list();
 			return new PageResponse<>(items, paging.page(), paging.size(), total);
 		});
 	}
 
-	record Member(UUID userId, String email, String displayName, Role role) {
+	@PatchMapping("/api/v1/organizations/{orgId}/members/{userId}")
+	Member changeRole(@PathVariable UUID orgId, @PathVariable UUID userId, @Valid @RequestBody RolePatch request) {
+		return members.changeRole(orgId, userId, Role.valueOf(request.role()), request.version());
+	}
+
+	@DeleteMapping("/api/v1/organizations/{orgId}/members/{userId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void remove(@PathVariable UUID orgId, @PathVariable UUID userId) {
+		members.remove(orgId, userId);
+	}
+
+	record Member(UUID userId, String email, String displayName, Role role, long version) {
+	}
+
+	record RolePatch(@NotNull @Pattern(regexp = "OWNER|ADMIN|MEMBER|VIEWER") String role, @NotNull Long version) {
 	}
 
 }

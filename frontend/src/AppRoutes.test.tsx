@@ -24,6 +24,7 @@ const organization = (id: string, name: string, slug: string) => ({
   id,
   name,
   slug,
+  allowSelfApproval: true,
   role: 'OWNER',
   createdBy: '99999999-9999-4999-8999-999999999999',
   createdAt: '2026-11-22T10:00:00Z',
@@ -295,6 +296,20 @@ describe('organization routes', () => {
 
     expect(await screen.findByRole('link', { name: 'Projects' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Audit log' })).toBeNull()
+  })
+
+  it('shows the My reviews count in the sidebar', async () => {
+    serve({
+      'GET /organizations': page([acme]),
+      [`GET /organizations/${ORG_A}`]: () => json(200, acme),
+      [`GET /organizations/${ORG_A}/reviews/mine`]: () =>
+        json(200, { items: [], page: 0, size: 1, totalItems: 3 }),
+    })
+
+    renderAt(`/orgs/${ORG_A}`)
+
+    const link = await screen.findByRole('link', { name: 'My reviews, 3 waiting' })
+    expect(link).toHaveAttribute('href', `/orgs/${ORG_A}/reviews`)
   })
 
   it('switches organizations from the sidebar', async () => {

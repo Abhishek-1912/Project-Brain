@@ -134,6 +134,196 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Organizations]
+      operationId: updateMemberRole
+      summary: Change a member's access role (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemberPatch' }
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Organizations]
+      operationId: removeMember
+      summary: Remove a member and keep their history (owner only)
+      responses:
+        '204':
+          description: Member removed
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /organizations/{orgId}/invites:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+    get:
+      tags: [Organizations]
+      operationId: listInvites
+      summary: List pending and expired invites (owner or admin)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Invites. Tokens and hashes are never returned here.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvitePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      tags: [Organizations]
+      operationId: createInvite
+      summary: Create an invite. Admins can invite only Member or Viewer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InviteCreate' }
+      responses:
+        '201':
+          description: Invite created. The token appears only in this response.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreatedInvite' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/invites/{inviteId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: inviteId
+        in: path
+        required: true
+        description: Invite ID
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Organizations]
+      operationId: cancelInvite
+      summary: Cancel a pending invite and keep its record
+      responses:
+        '204':
+          description: Invite cancelled
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /invites/accept:
+    post:
+      tags: [Organizations]
+      operationId: acceptInvite
+      summary: Accept an invite as the signed-in user
+      description: >
+        Every invalid case, including a wrong email, returns the same 404, so
+        the response does not reveal the organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InviteAccept' }
+      responses:
+        '200':
+          description: Invite accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptedInvite' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/job-roles:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+    get:
+      tags: [Organizations]
+      operationId: listJobRoles
+      summary: List the organization's job roles, including inactive roles
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Job roles
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRolePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      tags: [Organizations]
+      operationId: createJobRole
+      summary: Create a job role (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobRoleCreate' }
+      responses:
+        '201':
+          description: Job role created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/job-roles/{jobRoleId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/JobRoleId'
+    patch:
+      tags: [Organizations]
+      operationId: updateJobRole
+      summary: Rename, deactivate or reactivate a job role (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobRolePatch' }
+      responses:
+        '200':
+          description: Job role updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /organizations/{orgId}/projects:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -212,6 +402,53 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/projects/{projectId}/team:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Projects]
+      operationId: getProjectTeam
+      summary: Get organization members, their job roles on this project, and role coverage
+      responses:
+        '200':
+          description: Project team
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectTeam' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/projects/{projectId}/team/{userId}/job-roles/{jobRoleId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/JobRoleId'
+    put:
+      tags: [Projects]
+      operationId: assignProjectJobRole
+      summary: Give a member a job role on this project (owner or admin)
+      responses:
+        '204':
+          description: Job role assigned
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Projects]
+      operationId: removeProjectJobRole
+      summary: Remove a member's job role on this project (owner or admin)
+      responses:
+        '204':
+          description: Job role removed
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /organizations/{orgId}/projects/{projectId}/tasks:
     parameters:
@@ -315,6 +552,202 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /organizations/{orgId}/tasks/{taskId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: submitTask
+      summary: Submit a task for review (owner, admin or member)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskReviewRequest' }
+      responses:
+        '200':
+          description: Task after the review action
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/tasks/{taskId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: approveTask
+      summary: Approve a task as an eligible reviewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskReviewRequest' }
+      responses:
+        '200':
+          description: Task after the review action
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/tasks/{taskId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: rejectTask
+      summary: Reject a task with a required comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskReviewRequest' }
+      responses:
+        '200':
+          description: Task after the review action
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/tasks/{taskId}/withdraw:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: withdrawTaskReview
+      summary: Withdraw a task from review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskReviewRequest' }
+      responses:
+        '200':
+          description: Task after the review action
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/tasks/{taskId}/reopen:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: reopenTask
+      summary: Reopen a done task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskReviewRequest' }
+      responses:
+        '200':
+          description: Task after the review action
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/settings:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+    patch:
+      tags: [Organizations]
+      operationId: updateOrganizationSettings
+      summary: Change organization approval settings (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrganizationSettingsPatch' }
+      responses:
+        '200':
+          description: Organization updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/reviews/mine:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+    get:
+      tags: [Tasks]
+      operationId: listMyReviews
+      summary: List tasks the current user can approve or reject, oldest submission first
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Review queue
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewQueuePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/tasks/{taskId}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Tasks]
+      operationId: listTaskReviews
+      summary: List a task's review history, newest first
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Review history
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskReviewPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -349,6 +782,18 @@ components:
       in: path
       required: true
       description: Organization ID
+      schema: { type: string, format: uuid }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: User ID
+      schema: { type: string, format: uuid }
+    JobRoleId:
+      name: jobRoleId
+      in: path
+      required: true
+      description: Job role ID
       schema: { type: string, format: uuid }
     ProjectId:
       name: projectId
@@ -429,7 +874,7 @@ components:
 
     Organization:
       type: object
-      required: [id, name, slug, role, createdBy, createdAt, updatedAt, version]
+      required: [id, name, slug, role, createdBy, createdAt, updatedAt, version, allowSelfApproval]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -440,6 +885,14 @@ components:
         createdBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+        allowSelfApproval: { type: boolean }
+    OrganizationSettingsPatch:
+      type: object
+      additionalProperties: false
+      required: [allowSelfApproval, version]
+      properties:
+        allowSelfApproval: { type: boolean }
         version: { type: integer, format: int64 }
     OrganizationCreate:
       type: object
@@ -462,12 +915,120 @@ components:
 
     Member:
       type: object
-      required: [userId, email, displayName, role]
+      required: [userId, email, displayName, role, version]
       properties:
         userId: { type: string, format: uuid }
         email: { type: string, format: email }
         displayName: { type: string }
         role: { $ref: '#/components/schemas/Role' }
+        version: { type: integer, format: int64 }
+    MemberPatch:
+      type: object
+      additionalProperties: false
+      required: [role, version]
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        version: { type: integer, format: int64 }
+
+    InviteRole:
+      type: string
+      enum: [ADMIN, MEMBER, VIEWER]
+    Invite:
+      type: object
+      required: [id, email, role, status, expiresAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/InviteRole' }
+        status: { type: string, enum: [PENDING, EXPIRED] }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    CreatedInvite:
+      allOf:
+        - $ref: '#/components/schemas/Invite'
+        - type: object
+          required: [token]
+          properties:
+            token: { type: string }
+    InviteCreate:
+      type: object
+      additionalProperties: false
+      required: [email, role]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        role: { $ref: '#/components/schemas/InviteRole' }
+    InviteAccept:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1 }
+    AcceptedInvite:
+      type: object
+      required: [organizationId]
+      properties:
+        organizationId: { type: string, format: uuid }
+
+    JobRole:
+      type: object
+      required: [id, organizationId, name, active, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        name: { type: string }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    JobRoleCreate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+    JobRolePatch:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        active: { type: boolean }
+        version: { type: integer, format: int64 }
+
+    ApprovalBasis:
+      type: string
+      enum: [ROLE_HOLDER, OWNER_FALLBACK]
+    ProjectTeamMember:
+      type: object
+      required: [userId, email, displayName, role, jobRoleIds]
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        jobRoleIds:
+          type: array
+          items: { type: string, format: uuid }
+    ProjectTeamJobRole:
+      type: object
+      required: [id, name, active, approvalBasis]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        active: { type: boolean }
+        approvalBasis:
+          $ref: '#/components/schemas/ApprovalBasis'
+          description: Who approves this role's tasks on this project
+    ProjectTeam:
+      type: object
+      required: [members, jobRoles]
+      properties:
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/ProjectTeamMember' }
+        jobRoles:
+          type: array
+          items: { $ref: '#/components/schemas/ProjectTeamJobRole' }
 
     Project:
       type: object
@@ -501,7 +1062,7 @@ components:
 
     Task:
       type: object
-      required: [id, organizationId, projectId, title, description, status, priority, assigneeId, dueDate, createdBy, createdAt, updatedAt, version]
+      required: [id, organizationId, projectId, title, description, status, priority, assigneeId, dueDate, responsibleJobRoleId, createdBy, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         organizationId: { type: string, format: uuid }
@@ -512,6 +1073,10 @@ components:
         priority: { $ref: '#/components/schemas/TaskPriority' }
         assigneeId: { type: [string, 'null'], format: uuid }
         dueDate: { type: [string, 'null'], format: date }
+        responsibleJobRoleId:
+          type: [string, 'null']
+          format: uuid
+          description: Null only for tasks created before job roles existed
         createdBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -519,7 +1084,7 @@ components:
     TaskCreate:
       type: object
       additionalProperties: false
-      required: [title]
+      required: [title, responsibleJobRoleId]
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: [string, 'null'], maxLength: 10000 }
@@ -531,6 +1096,10 @@ components:
           default: MEDIUM
         assigneeId: { type: [string, 'null'], format: uuid }
         dueDate: { type: [string, 'null'], format: date }
+        responsibleJobRoleId:
+          type: string
+          format: uuid
+          description: Must be an active job role. New tasks cannot start in IN_REVIEW or DONE.
     TaskPatch:
       type: object
       additionalProperties: false
@@ -542,7 +1111,61 @@ components:
         priority: { $ref: '#/components/schemas/TaskPriority' }
         assigneeId: { type: [string, 'null'], format: uuid }
         dueDate: { type: [string, 'null'], format: date }
+        responsibleJobRoleId:
+          type: string
+          format: uuid
+          description: Cannot be cleared once set, or changed while the task is in review
         version: { type: integer, format: int64 }
+
+    TaskReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer, format: int64 }
+        comment:
+          type: [string, 'null']
+          maxLength: 2000
+          description: Required and non-blank when rejecting
+
+    TaskReviewAction:
+      type: string
+      enum: [SUBMITTED, APPROVED, REJECTED, WITHDRAWN, REOPENED]
+    TaskReview:
+      type: object
+      required: [id, taskId, taskVersion, action, actorId, actorName, jobRoleId, jobRoleName, approvalBasis, selfApproved, comment, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        taskId: { type: string, format: uuid }
+        taskVersion: { type: integer, format: int64 }
+        action: { $ref: '#/components/schemas/TaskReviewAction' }
+        actorId: { type: string, format: uuid }
+        actorName:
+          type: [string, 'null']
+          description: Null when the person is no longer a member
+        jobRoleId: { type: string, format: uuid }
+        jobRoleName: { type: string }
+        approvalBasis:
+          oneOf:
+            - $ref: '#/components/schemas/ApprovalBasis'
+            - type: 'null'
+        selfApproved: { type: boolean }
+        comment: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    ReviewQueueItem:
+      type: object
+      required: [task, projectName, jobRoleName, submittedBy, submittedByName, submittedAt, approvalBasis, selfApproval]
+      properties:
+        task: { $ref: '#/components/schemas/Task' }
+        projectName: { type: string }
+        jobRoleName: { type: string }
+        submittedBy: { type: string, format: uuid }
+        submittedByName:
+          type: [string, 'null']
+          description: Null when the person is no longer a member
+        submittedAt: { type: string, format: date-time }
+        approvalBasis: { $ref: '#/components/schemas/ApprovalBasis' }
+        selfApproval: { type: boolean }
 
     AuditEvent:
       type: object
@@ -584,6 +1207,42 @@ components:
             items:
               type: array
               items: { $ref: '#/components/schemas/Member' }
+    InvitePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Invite' }
+    TaskReviewPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/TaskReview' }
+    ReviewQueuePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ReviewQueueItem' }
+    JobRolePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/JobRole' }
     ProjectPage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'

@@ -14,7 +14,12 @@ import { AuditLogPage } from './features/audit/AuditLogPage'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
 import { ProjectListPage } from './features/projects/ProjectListPage'
+import { MyReviewsPage } from './features/reviews/MyReviewsPage'
 import { TaskListPage } from './features/tasks/TaskListPage'
+import { InviteAcceptPage } from './features/team/InviteAcceptPage'
+import { readPendingInvite } from './features/team/pendingInvite'
+import { ProjectTeamPage } from './features/team/ProjectTeamPage'
+import { TeamPage } from './features/team/TeamPage'
 
 function createQueryClient() {
   return new QueryClient({
@@ -46,6 +51,8 @@ function SignedInApp() {
 function OrganizationIndex() {
   const { data, isPending, isFetching, refetch } = useOrganizations()
 
+  // Sign-up always lands here, so an invite in progress resumes from this point.
+  if (readPendingInvite()) return <Navigate to="/invite" replace />
   if (isPending) return <LoadingState label="Loading organizations" />
   if (!data) {
     return (
@@ -84,6 +91,7 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/invite" element={<InviteAcceptPage />} />
       <Route
         element={
           <RequireAuth>
@@ -96,6 +104,9 @@ export function AppRoutes() {
         <Route path="orgs/:orgId" element={<AppLayout />}>
           <Route index element={<ProjectListPage />} />
           <Route path="projects/:projectId" element={<TaskListPage />} />
+          <Route path="projects/:projectId/team" element={<ProjectTeamPage />} />
+          <Route path="reviews" element={<MyReviewsPage />} />
+          <Route path="team" element={<TeamPage />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />

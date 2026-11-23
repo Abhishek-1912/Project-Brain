@@ -6,6 +6,7 @@ import { InlineAlert } from '../../components/InlineAlert'
 import { LoadingState } from '../../components/LoadingState'
 import { useCurrentOrg } from '../organizations/useOrganizations'
 import { useProject } from '../projects/useProjects'
+import { useJobRoles } from '../team/useProjectTeam'
 import { TaskFilters } from './TaskFilters'
 import { TaskPanel } from './TaskPanel'
 import {
@@ -64,6 +65,7 @@ function ProjectTasks({ projectId }: { projectId: string }) {
   const page = parsePage(params.get('page'))
   const project = useProject(org.id, projectId)
   const members = useMembers(org.id)
+  const jobRoles = useJobRoles(org.id)
   const tasks = useTasks(org.id, projectId, { status, assigneeId, page })
   const canEdit = can('EDIT_TASKS')
   const projectsPath = `/orgs/${org.id}`
@@ -103,6 +105,7 @@ function ProjectTasks({ projectId }: { projectId: string }) {
   const data = tasks.data
   const hasFilters = Boolean(status || assigneeId)
   const memberById = new Map(members.data?.map((member) => [member.userId, member]))
+  const jobRoleById = new Map(jobRoles.data?.map((role) => [role.id, role.name]))
 
   if (data && !tasks.isPlaceholderData && data.items.length === 0 && page > 0) {
     return <Navigate replace to={{ search: withPage(params, page - 1).toString() }} />
@@ -149,6 +152,7 @@ function ProjectTasks({ projectId }: { projectId: string }) {
               <tr>
                 <th scope="col" className="px-4 py-2.5 font-medium">Title</th>
                 <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
+                <th scope="col" className="hidden px-4 py-2.5 font-medium lg:table-cell">Role</th>
                 <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">Priority</th>
                 <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">Assignee</th>
                 <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">Due</th>
@@ -169,6 +173,9 @@ function ProjectTasks({ projectId }: { projectId: string }) {
                       </button>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">{STATUS_LABELS[task.status]}</td>
+                    <td className="hidden px-4 py-3 whitespace-nowrap lg:table-cell">
+                      {task.responsibleJobRoleId ? (jobRoleById.get(task.responsibleJobRoleId) ?? '…') : 'No role'}
+                    </td>
                     <td className="hidden px-4 py-3 whitespace-nowrap sm:table-cell">
                       {PRIORITY_LABELS[task.priority]}
                     </td>
@@ -213,7 +220,10 @@ function ProjectTasks({ projectId }: { projectId: string }) {
 
   return (
     <section>
-      <Link to={projectsPath} className="text-sm">Back to projects</Link>
+      <div className="flex flex-wrap justify-between gap-3 text-sm">
+        <Link to={projectsPath}>Back to projects</Link>
+        <Link to={`${projectsPath}/projects/${projectId}/team`}>Project team</Link>
+      </div>
       <div className="mt-3 mb-4 flex min-h-9 flex-wrap items-center justify-between gap-3">
         <h2 className="min-w-0 text-lg font-semibold break-words text-text-primary">
           {project.data.name}

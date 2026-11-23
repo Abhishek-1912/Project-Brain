@@ -9,6 +9,8 @@ import com.projectbrain.audit.api.AuditLog;
 import com.projectbrain.identity.api.CurrentUser;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.identity.api.ProfileProvisioner;
+import com.projectbrain.organization.api.ApprovalSettings;
+import com.projectbrain.organization.api.OrganizationInitializer;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
 import com.projectbrain.organization.api.Role;
@@ -21,12 +23,13 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
 @Service
-class OrganizationService {
+class OrganizationService implements ApprovalSettings {
 
 	private static final String ENTITY_TYPE = "ORGANIZATION";
 
 	private static final String SELECT_FOR_USER = """
-			SELECT o.id, o.name, o.slug, m.role, o.created_by, o.created_at, o.updated_at, o.version
+			SELECT o.id, o.name, o.slug, m.role, o.created_by, o.created_at, o.updated_at, o.version,
+			       o.allow_self_approval
 			FROM brain.organizations o
 			JOIN brain.organization_members m ON m.organization_id = o.id AND m.user_id = :userId
 			""";
@@ -35,7 +38,7 @@ class OrganizationService {
 			row.getObject("id", UUID.class), row.getString("name"), row.getString("slug"),
 			Role.valueOf(row.getString("role")), row.getObject("created_by", UUID.class),
 			row.getObject("created_at", OffsetDateTime.class), row.getObject("updated_at", OffsetDateTime.class),
-			row.getLong("version"));
+			row.getLong("version"), row.getBoolean("allow_self_approval"));
 
 	private final OrgTx orgTx;
 
@@ -47,13 +50,24 @@ class OrganizationService {
 
 	private final AuditLog auditLog;
 
+	private final List<OrganizationInitializer> initializers;
+
 	OrganizationService(OrgTx orgTx, JdbcClient jdbc, CurrentUserProvider currentUser, ProfileProvisioner profiles,
-			AuditLog auditLog) {
+			AuditLog auditLog, List<OrganizationInitializer> initializers) {
+		this.initializers = initializers;
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.currentUser = currentUser;
 		this.profiles = profiles;
 		this.auditLog = auditLog;
+	}
+
+	@Override
+	public boolean allowsSelfApproval(UUID orgId) {
+		return jdbc.sql("SELECT allow_self_approval FROM brain.organizations WHERE id = :orgId")
+			.param("orgId", orgId)
+			.query(Boolean.class)
+			.single();
 	}
 
 	PageResponse<Organization> list(PageParams paging) {
@@ -103,6 +117,7 @@ class OrganizationService {
 				.param("orgId", orgId)
 				.param("userId", user.id())
 				.update();
+			initializers.forEach(initializer -> initializer.initialize(orgId));
 			auditLog.record(orgId, "ORGANIZATION_CREATED", ENTITY_TYPE, orgId, Map.of("name", name, "slug", slug));
 			return load(orgId, user.id());
 		});
@@ -141,6 +156,34 @@ class OrganizationService {
 		});
 	}
 
+	Organization updateSettings(UUID orgId, boolean allowSelfApproval, long version) {
+		UUID userId = currentUser.get().id();
+		return orgTx.inOrg(orgId, Permission.EDIT_ORGANIZATION, () -> {
+			Organization existing = load(orgId, userId);
+			if (existing.version() != version) {
+				throw staleVersion();
+			}
+			if (existing.allowSelfApproval() == allowSelfApproval) {
+				return existing;
+			}
+			int updated = jdbc.sql("""
+					UPDATE brain.organizations
+					SET allow_self_approval = :allowSelfApproval, updated_at = now(), version = version + 1
+					WHERE id = :id AND version = :version
+					""")
+				.param("allowSelfApproval", allowSelfApproval)
+				.param("id", orgId)
+				.param("version", version)
+				.update();
+			if (updated == 0) {
+				throw staleVersion();
+			}
+			auditLog.record(orgId, "SELF_APPROVAL_SETTING_CHANGED", ENTITY_TYPE, orgId,
+					Map.of("name", existing.name(), "allowSelfApproval", allowSelfApproval));
+			return load(orgId, userId);
+		});
+	}
+
 	private Organization load(UUID orgId, UUID userId) {
 		return jdbc.sql(SELECT_FOR_USER + " WHERE o.id = :orgId")
 			.param("userId", userId)
@@ -154,7 +197,7 @@ class OrganizationService {
 	}
 
 	record Organization(UUID id, String name, String slug, Role role, UUID createdBy, OffsetDateTime createdAt,
-			OffsetDateTime updatedAt, long version) {
+			OffsetDateTime updatedAt, long version, boolean allowSelfApproval) {
 	}
 
 }

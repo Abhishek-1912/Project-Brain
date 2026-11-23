@@ -70,11 +70,12 @@ class TaskController {
 
 	record CreateRequest(@NotBlank @Size(max = 200) String title, @Size(max = 10000) String description,
 			@Pattern(regexp = STATUS_VALUES) String status, @Pattern(regexp = PRIORITY_VALUES) String priority,
-			UUID assigneeId, LocalDate dueDate) {
+			UUID assigneeId, LocalDate dueDate, @NotNull UUID responsibleJobRoleId) {
 
 		NewTask toNewTask() {
 			return new NewTask(title, description, status == null ? null : TaskStatus.valueOf(status),
-					priority == null ? null : TaskPriority.valueOf(priority), assigneeId, dueDate);
+					priority == null ? null : TaskPriority.valueOf(priority), assigneeId, dueDate,
+					responsibleJobRoleId);
 		}
 
 	}
@@ -93,6 +94,8 @@ class TaskController {
 		private Optional<UUID> assigneeId;
 
 		private Optional<LocalDate> dueDate;
+
+		private Optional<UUID> responsibleJobRoleId;
 
 		@NotNull
 		private Long version;
@@ -121,13 +124,18 @@ class TaskController {
 			this.dueDate = Optional.ofNullable(dueDate);
 		}
 
+		public void setResponsibleJobRoleId(UUID responsibleJobRoleId) {
+			this.responsibleJobRoleId = Optional.ofNullable(responsibleJobRoleId);
+		}
+
 		public void setVersion(Long version) {
 			this.version = version;
 		}
 
 		TaskPatch toPatch() {
 			return new TaskPatch(title, description, status == null ? null : status.map(TaskStatus::valueOf),
-					priority == null ? null : priority.map(TaskPriority::valueOf), assigneeId, dueDate, version);
+					priority == null ? null : priority.map(TaskPriority::valueOf), assigneeId, dueDate,
+					responsibleJobRoleId, version);
 		}
 
 	}

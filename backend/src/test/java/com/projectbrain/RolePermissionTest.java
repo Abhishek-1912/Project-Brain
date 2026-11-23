@@ -30,7 +30,19 @@ class RolePermissionTest {
 			"VIEWER, EDIT_TASKS,        false",
 			"VIEWER, MANAGE_PROJECTS,   false",
 			"VIEWER, VIEW_AUDIT,        false",
-			"VIEWER, EDIT_ORGANIZATION, false" })
+			"VIEWER, EDIT_ORGANIZATION, false",
+			"OWNER,  INVITE_MEMBERS,    true",
+			"OWNER,  MANAGE_MEMBERS,    true",
+			"OWNER,  MANAGE_JOB_ROLES,  true",
+			"ADMIN,  INVITE_MEMBERS,    true",
+			"ADMIN,  MANAGE_MEMBERS,    false",
+			"ADMIN,  MANAGE_JOB_ROLES,  false",
+			"MEMBER, INVITE_MEMBERS,    false",
+			"MEMBER, MANAGE_MEMBERS,    false",
+			"MEMBER, MANAGE_JOB_ROLES,  false",
+			"VIEWER, INVITE_MEMBERS,    false",
+			"VIEWER, MANAGE_MEMBERS,    false",
+			"VIEWER, MANAGE_JOB_ROLES,  false" })
 	void roleMatrixMatchesSpecSection9(Role role, Permission permission, boolean allowed) {
 		assertThat(role.allows(permission)).isEqualTo(allowed);
 	}

@@ -157,6 +157,33 @@ class OrganizationApiTest extends PostgresTestBase {
 	}
 
 	@Test
+	void onlyOwnerCanChangeSelfApprovalSetting() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner, "OWNER");
+		UUID admin = seedProfile();
+		UUID adminOrg = seedOrg(admin, "ADMIN");
+
+		mvc.perform(get(ORGS + "/" + org).with(as(owner)))
+			.andExpect(jsonPath("$.allowSelfApproval").value(true));
+		mvc.perform(patch(ORGS + "/" + adminOrg + "/settings").with(as(admin)).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"allowSelfApproval\":false,\"version\":0}"))
+			.andExpect(status().isForbidden());
+		mvc.perform(patch(ORGS + "/" + org + "/settings").with(as(owner)).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"allowSelfApproval\":false,\"version\":7}"))
+			.andExpect(status().isConflict());
+		mvc.perform(patch(ORGS + "/" + org + "/settings").with(as(owner)).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"version\":0}"))
+			.andExpect(status().isUnprocessableContent());
+		mvc.perform(patch(ORGS + "/" + org + "/settings").with(as(owner)).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"allowSelfApproval\":false,\"version\":0}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.allowSelfApproval").value(false))
+			.andExpect(jsonPath("$.version").value(1));
+
+		assertThat(auditCount(org, owner, "SELF_APPROVAL_SETTING_CHANGED", org)).isEqualTo(1);
+	}
+
+	@Test
 	void adminCannotEditOrganization() throws Exception {
 		UUID admin = seedProfile();
 		UUID org = seedOrg(admin, "ADMIN");
