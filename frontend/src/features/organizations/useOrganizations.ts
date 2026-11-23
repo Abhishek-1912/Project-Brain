@@ -12,11 +12,23 @@ export type Permission =
   | 'MANAGE_PROJECTS'
   | 'VIEW_AUDIT'
   | 'EDIT_ORGANIZATION'
+  | 'INVITE_MEMBERS'
+  | 'MANAGE_MEMBERS'
+  | 'MANAGE_JOB_ROLES'
 
 // Mirrors backend Role.java. The API still enforces every permission.
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  OWNER: ['VIEW', 'EDIT_TASKS', 'MANAGE_PROJECTS', 'VIEW_AUDIT', 'EDIT_ORGANIZATION'],
-  ADMIN: ['VIEW', 'EDIT_TASKS', 'MANAGE_PROJECTS', 'VIEW_AUDIT'],
+  OWNER: [
+    'VIEW',
+    'EDIT_TASKS',
+    'MANAGE_PROJECTS',
+    'VIEW_AUDIT',
+    'EDIT_ORGANIZATION',
+    'INVITE_MEMBERS',
+    'MANAGE_MEMBERS',
+    'MANAGE_JOB_ROLES',
+  ],
+  ADMIN: ['VIEW', 'EDIT_TASKS', 'MANAGE_PROJECTS', 'VIEW_AUDIT', 'INVITE_MEMBERS'],
   MEMBER: ['VIEW', 'EDIT_TASKS'],
   VIEWER: ['VIEW'],
 }

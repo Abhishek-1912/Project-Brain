@@ -24,6 +24,7 @@ const organization = (id: string, name: string, slug: string) => ({
   id,
   name,
   slug,
+  allowSelfApproval: true,
   role: 'OWNER',
   createdBy: '99999999-9999-4999-8999-999999999999',
   createdAt: '2026-11-22T10:00:00Z',

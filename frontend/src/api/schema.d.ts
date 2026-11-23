@@ -80,6 +80,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{orgId}/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description User ID */
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a member and keep their history (owner only) */
+        delete: operations["removeMember"];
+        options?: never;
+        head?: never;
+        /** Change a member's access role (owner only) */
+        patch: operations["updateMemberRole"];
+        trace?: never;
+    };
+    "/organizations/{orgId}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        /** List pending and expired invites (owner or admin) */
+        get: operations["listInvites"];
+        put?: never;
+        /** Create an invite. Admins can invite only Member or Viewer. */
+        post: operations["createInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/invites/{inviteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Invite ID */
+                inviteId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel a pending invite and keep its record */
+        delete: operations["cancelInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invites/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an invite as the signed-in user
+         * @description Every invalid case, including a wrong email, returns the same 404, so the response does not reveal the organization.
+         */
+        post: operations["acceptInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/job-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        /** List the organization's job roles, including inactive roles */
+        get: operations["listJobRoles"];
+        put?: never;
+        /** Create a job role (owner only) */
+        post: operations["createJobRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/job-roles/{jobRoleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Job role ID */
+                jobRoleId: components["parameters"]["JobRoleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename, deactivate or reactivate a job role (owner only) */
+        patch: operations["updateJobRole"];
+        trace?: never;
+    };
     "/organizations/{orgId}/projects": {
         parameters: {
             query?: never;
@@ -122,6 +251,55 @@ export interface paths {
         head?: never;
         /** Update or archive a project (owner or admin) */
         patch: operations["updateProject"];
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** Get organization members, their job roles on this project, and role coverage */
+        get: operations["getProjectTeam"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/team/{userId}/job-roles/{jobRoleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description User ID */
+                userId: components["parameters"]["UserId"];
+                /** @description Job role ID */
+                jobRoleId: components["parameters"]["JobRoleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Give a member a job role on this project (owner or admin) */
+        put: operations["assignProjectJobRole"];
+        post?: never;
+        /** Remove a member's job role on this project (owner or admin) */
+        delete: operations["removeProjectJobRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/organizations/{orgId}/projects/{projectId}/tasks": {
@@ -172,6 +350,178 @@ export interface paths {
          * @description An absent `assigneeId` or `dueDate` leaves the value unchanged. An explicit null clears it.
          */
         patch: operations["updateTask"];
+        trace?: never;
+    };
+    "/organizations/{orgId}/tasks/{taskId}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a task for review (owner, admin or member) */
+        post: operations["submitTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/tasks/{taskId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a task as an eligible reviewer */
+        post: operations["approveTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/tasks/{taskId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a task with a required comment */
+        post: operations["rejectTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/tasks/{taskId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a task from review */
+        post: operations["withdrawTaskReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/tasks/{taskId}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen a done task */
+        post: operations["reopenTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change organization approval settings (owner only) */
+        patch: operations["updateOrganizationSettings"];
+        trace?: never;
+    };
+    "/organizations/{orgId}/reviews/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        /** List tasks the current user can approve or reject, oldest submission first */
+        get: operations["listMyReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/tasks/{taskId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        /** List a task's review history, newest first */
+        get: operations["listTaskReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/organizations/{orgId}/audit-events": {
@@ -228,6 +578,12 @@ export interface components {
             updatedAt: string;
             /** Format: int64 */
             version: number;
+            allowSelfApproval: boolean;
+        };
+        OrganizationSettingsPatch: {
+            allowSelfApproval: boolean;
+            /** Format: int64 */
+            version: number;
         };
         OrganizationCreate: {
             name: string;
@@ -245,6 +601,89 @@ export interface components {
             email: string;
             displayName: string;
             role: components["schemas"]["Role"];
+            /** Format: int64 */
+            version: number;
+        };
+        MemberPatch: {
+            role: components["schemas"]["Role"];
+            /** Format: int64 */
+            version: number;
+        };
+        /** @enum {string} */
+        InviteRole: "ADMIN" | "MEMBER" | "VIEWER";
+        Invite: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["InviteRole"];
+            /** @enum {string} */
+            status: "PENDING" | "EXPIRED";
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreatedInvite: components["schemas"]["Invite"] & {
+            token: string;
+        };
+        InviteCreate: {
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["InviteRole"];
+        };
+        InviteAccept: {
+            token: string;
+        };
+        AcceptedInvite: {
+            /** Format: uuid */
+            organizationId: string;
+        };
+        JobRole: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            organizationId: string;
+            name: string;
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        JobRoleCreate: {
+            name: string;
+        };
+        JobRolePatch: {
+            name?: string;
+            active?: boolean;
+            /** Format: int64 */
+            version: number;
+        };
+        /** @enum {string} */
+        ApprovalBasis: "ROLE_HOLDER" | "OWNER_FALLBACK";
+        ProjectTeamMember: {
+            /** Format: uuid */
+            userId: string;
+            /** Format: email */
+            email: string;
+            displayName: string;
+            role: components["schemas"]["Role"];
+            jobRoleIds: string[];
+        };
+        ProjectTeamJobRole: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            active: boolean;
+            /** @description Who approves this role's tasks on this project */
+            approvalBasis: components["schemas"]["ApprovalBasis"];
+        };
+        ProjectTeam: {
+            members: components["schemas"]["ProjectTeamMember"][];
+            jobRoles: components["schemas"]["ProjectTeamJobRole"][];
         };
         Project: {
             /** Format: uuid */
@@ -289,6 +728,11 @@ export interface components {
             assigneeId: string | null;
             /** Format: date */
             dueDate: string | null;
+            /**
+             * Format: uuid
+             * @description Null only for tasks created before job roles existed
+             */
+            responsibleJobRoleId: string | null;
             /** Format: uuid */
             createdBy: string;
             /** Format: date-time */
@@ -309,6 +753,11 @@ export interface components {
             assigneeId?: string | null;
             /** Format: date */
             dueDate?: string | null;
+            /**
+             * Format: uuid
+             * @description Must be an active job role. New tasks cannot start in IN_REVIEW or DONE.
+             */
+            responsibleJobRoleId: string;
         };
         TaskPatch: {
             title?: string;
@@ -319,8 +768,55 @@ export interface components {
             assigneeId?: string | null;
             /** Format: date */
             dueDate?: string | null;
+            /**
+             * Format: uuid
+             * @description Cannot be cleared once set, or changed while the task is in review
+             */
+            responsibleJobRoleId?: string;
             /** Format: int64 */
             version: number;
+        };
+        TaskReviewRequest: {
+            /** Format: int64 */
+            version: number;
+            /** @description Required and non-blank when rejecting */
+            comment?: string | null;
+        };
+        /** @enum {string} */
+        TaskReviewAction: "SUBMITTED" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "REOPENED";
+        TaskReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            taskId: string;
+            /** Format: int64 */
+            taskVersion: number;
+            action: components["schemas"]["TaskReviewAction"];
+            /** Format: uuid */
+            actorId: string;
+            /** @description Null when the person is no longer a member */
+            actorName: string | null;
+            /** Format: uuid */
+            jobRoleId: string;
+            jobRoleName: string;
+            approvalBasis: components["schemas"]["ApprovalBasis"] | null;
+            selfApproved: boolean;
+            comment: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReviewQueueItem: {
+            task: components["schemas"]["Task"];
+            projectName: string;
+            jobRoleName: string;
+            /** Format: uuid */
+            submittedBy: string;
+            /** @description Null when the person is no longer a member */
+            submittedByName: string | null;
+            /** Format: date-time */
+            submittedAt: string;
+            approvalBasis: components["schemas"]["ApprovalBasis"];
+            selfApproval: boolean;
         };
         AuditEvent: {
             /** Format: uuid */
@@ -350,6 +846,18 @@ export interface components {
         };
         MemberPage: components["schemas"]["PageMeta"] & {
             items: components["schemas"]["Member"][];
+        };
+        InvitePage: components["schemas"]["PageMeta"] & {
+            items: components["schemas"]["Invite"][];
+        };
+        TaskReviewPage: components["schemas"]["PageMeta"] & {
+            items: components["schemas"]["TaskReview"][];
+        };
+        ReviewQueuePage: components["schemas"]["PageMeta"] & {
+            items: components["schemas"]["ReviewQueueItem"][];
+        };
+        JobRolePage: components["schemas"]["PageMeta"] & {
+            items: components["schemas"]["JobRole"][];
         };
         ProjectPage: components["schemas"]["PageMeta"] & {
             items: components["schemas"]["Project"][];
@@ -433,6 +941,10 @@ export interface components {
     parameters: {
         /** @description Organization ID */
         OrgId: string;
+        /** @description User ID */
+        UserId: string;
+        /** @description Job role ID */
+        JobRoleId: string;
         /** @description Project ID */
         ProjectId: string;
         /** @description Task ID */
@@ -613,6 +1125,287 @@ export interface operations {
             422: components["responses"]["Unprocessable"];
         };
     };
+    removeMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description User ID */
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description User ID */
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPatch"];
+            };
+        };
+        responses: {
+            /** @description Member updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listInvites: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invites. Tokens and hashes are never returned here. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    createInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteCreate"];
+            };
+        };
+        responses: {
+            /** @description Invite created. The token appears only in this response. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedInvite"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    cancelInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Invite ID */
+                inviteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invite cancelled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    acceptInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteAccept"];
+            };
+        };
+        responses: {
+            /** @description Invite accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedInvite"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listJobRoles: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job roles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRolePage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    createJobRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobRoleCreate"];
+            };
+        };
+        responses: {
+            /** @description Job role created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRole"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    updateJobRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Job role ID */
+                jobRoleId: components["parameters"]["JobRoleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobRolePatch"];
+            };
+        };
+        responses: {
+            /** @description Job role updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRole"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
     listProjects: {
         parameters: {
             query?: {
@@ -737,6 +1530,96 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+        };
+    };
+    getProjectTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project team */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectTeam"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    assignProjectJobRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description User ID */
+                userId: components["parameters"]["UserId"];
+                /** @description Job role ID */
+                jobRoleId: components["parameters"]["JobRoleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job role assigned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    removeProjectJobRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description User ID */
+                userId: components["parameters"]["UserId"];
+                /** @description Job role ID */
+                jobRoleId: components["parameters"]["JobRoleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job role removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listTasks: {
@@ -897,6 +1780,278 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    submitTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Task after the review action */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    approveTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Task after the review action */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    rejectTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Task after the review action */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    withdrawTaskReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Task after the review action */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    reopenTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Task after the review action */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    updateOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Organization updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listMyReviews: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Review queue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewQueuePage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listTaskReviews: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Review history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskReviewPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
         };
     };

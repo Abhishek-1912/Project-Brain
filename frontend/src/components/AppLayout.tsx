@@ -21,28 +21,28 @@ const ROLE_LABELS: Record<Role, string> = {
 function OrganizationNav() {
   const { org, can } = useCurrentOrg()
   const { pathname } = useLocation()
+  const teamPath = `/orgs/${org.id}/team`
   const auditPath = `/orgs/${org.id}/audit`
-  const onAudit = pathname === auditPath
-  const itemClass = (active: boolean) =>
-    `rounded-md px-2 py-1.5 text-sm ${
-      active ? 'bg-primary-dim font-medium text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary'
-    }`
+  const section = pathname === auditPath ? 'audit' : pathname === teamPath ? 'team' : 'projects'
+  const itemProps = (name: string) => ({
+    'aria-current': section === name ? ('page' as const) : undefined,
+    className: `rounded-md px-2 py-1.5 text-sm ${
+      section === name
+        ? 'bg-primary-dim font-medium text-text-primary'
+        : 'text-text-secondary hover:bg-surface hover:text-text-primary'
+    }`,
+  })
 
   return (
-    <nav aria-label="Main" className="flex flex-row gap-1 md:flex-col">
-      <Link
-        to={`/orgs/${org.id}`}
-        aria-current={onAudit ? undefined : 'page'}
-        className={itemClass(!onAudit)}
-      >
+    <nav aria-label="Main" className="flex flex-row flex-wrap gap-1 md:flex-col">
+      <Link to={`/orgs/${org.id}`} {...itemProps('projects')}>
         Projects
       </Link>
+      <Link to={teamPath} {...itemProps('team')}>
+        Team
+      </Link>
       {can('VIEW_AUDIT') && (
-        <Link
-          to={auditPath}
-          aria-current={onAudit ? 'page' : undefined}
-          className={itemClass(onAudit)}
-        >
+        <Link to={auditPath} {...itemProps('audit')}>
           Audit log
         </Link>
       )}

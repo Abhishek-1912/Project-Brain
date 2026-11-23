@@ -110,10 +110,11 @@ function useRefreshTasks(orgId: string, projectId: string) {
 export function useCreateTask(orgId: string, projectId: string) {
   const onSettled = useRefreshTasks(orgId, projectId)
   return useMutation({
-    mutationFn: async (body: TaskCreate) => {
+    // Task 11 adds the required job role field to the form.
+    mutationFn: async (body: Omit<TaskCreate, 'responsibleJobRoleId'>) => {
       const { data } = await api.POST(
         '/organizations/{orgId}/projects/{projectId}/tasks',
-        { params: { path: { orgId, projectId } }, body },
+        { params: { path: { orgId, projectId } }, body: body as TaskCreate },
       )
       return data!
     },
