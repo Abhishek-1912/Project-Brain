@@ -23,8 +23,14 @@ class RequirementController {
 
 	private final RequirementService requirements;
 
-	RequirementController(RequirementService requirements) {
+	private final AiRunService runs;
+
+	private final AnalysisService analyses;
+
+	RequirementController(RequirementService requirements, AiRunService runs, AnalysisService analyses) {
 		this.requirements = requirements;
+		this.runs = runs;
+		this.analyses = analyses;
 	}
 
 	@GetMapping("/projects/{projectId}/requirements")
@@ -44,6 +50,22 @@ class RequirementController {
 	@GetMapping("/requirements/{documentId}")
 	DocumentView get(@PathVariable UUID orgId, @PathVariable UUID documentId) {
 		return requirements.get(orgId, documentId);
+	}
+
+	@PostMapping("/requirements/{documentId}/analyze")
+	@ResponseStatus(HttpStatus.ACCEPTED)
+	AiRunService.RunAccepted analyze(@PathVariable UUID orgId, @PathVariable UUID documentId) {
+		return runs.startAnalysis(orgId, documentId);
+	}
+
+	@GetMapping("/requirements/{documentId}/analysis")
+	AnalysisService.AnalysisResponse analysis(@PathVariable UUID orgId, @PathVariable UUID documentId) {
+		return analyses.latest(orgId, documentId);
+	}
+
+	@GetMapping("/ai-runs/{runId}")
+	AiRunStore.RunView run(@PathVariable UUID orgId, @PathVariable UUID runId) {
+		return runs.get(orgId, runId);
 	}
 
 }

@@ -29,6 +29,15 @@ class HttpAiServiceClientTest {
 	@BeforeEach
 	void start() throws IOException {
 		server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		server.createContext("/v1/analyze", exchange -> {
+			authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+			body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+			byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+			exchange.getResponseHeaders().add("Content-Type", "application/json");
+			exchange.sendResponseHeaders(status, bytes.length);
+			exchange.getResponseBody().write(bytes);
+			exchange.close();
+		});
 		server.createContext("/v1/extract", exchange -> {
 			authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
 			body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
@@ -83,6 +92,44 @@ class HttpAiServiceClientTest {
 		server.stop(0);
 
 		assertThatThrownBy(() -> client("service-token").extract("prd.md", "text/markdown", new byte[] { 1 }))
+			.isInstanceOfSatisfying(AiServiceException.class,
+					error -> assertThat(error.code()).isEqualTo("SERVICE_UNAVAILABLE"));
+	}
+
+	@Test
+	void analyzeSendsTextAndAnswersAndReadsUsage() {
+		response = """
+				{"result":{"summary":"Dummy"},
+				 "usage":{"provider":"gemini","model":"m","promptVersion":"analysis-v1","inputTokens":7,"outputTokens":3}}
+				""";
+
+		AiServiceClient.GeneratedResult result = client("service-token").analyze("Dummy PRD",
+				java.util.List.of(new AiServiceClient.ClarificationAnswer("Who?", "Diners")));
+
+		assertThat(result.result().path("summary").asString()).isEqualTo("Dummy");
+		assertThat(result.usage())
+			.isEqualTo(new AiServiceClient.AiUsage("gemini", "m", "analysis-v1", 7, 3));
+		assertThat(authorization.get()).isEqualTo("Bearer service-token");
+		assertThat(body.get()).contains("\"text\":\"Dummy PRD\"")
+			.contains("\"question\":\"Who?\"")
+			.contains("\"answer\":\"Diners\"");
+	}
+
+	@Test
+	void analyzeMapsProviderErrorToSafeCode() {
+		status = 429;
+		response = "{\"code\":\"RATE_LIMITED\"}";
+
+		assertThatThrownBy(() -> client("service-token").analyze("Dummy PRD", java.util.List.of()))
+			.isInstanceOfSatisfying(AiServiceException.class,
+					error -> assertThat(error.code()).isEqualTo("RATE_LIMITED"));
+	}
+
+	@Test
+	void analyzeResponseWithoutUsageIsUnavailable() {
+		response = "{\"result\":{}}";
+
+		assertThatThrownBy(() -> client("service-token").analyze("Dummy PRD", java.util.List.of()))
 			.isInstanceOfSatisfying(AiServiceException.class,
 					error -> assertThat(error.code()).isEqualTo("SERVICE_UNAVAILABLE"));
 	}

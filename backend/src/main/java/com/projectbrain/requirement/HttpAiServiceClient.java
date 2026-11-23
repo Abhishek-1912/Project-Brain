@@ -2,6 +2,8 @@ package com.projectbrain.requirement;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +67,26 @@ class HttpAiServiceClient implements AiServiceClient {
 				.exchange((request, response) -> read(response.getStatusCode().is2xxSuccessful(),
 						response.getBody().readAllBytes()), true);
 			return new ExtractedText(body.required("text").asString(), body.required("characters").asInt());
+		}
+		catch (RestClientException | JacksonException ex) {
+			throw new AiServiceException(UNAVAILABLE);
+		}
+	}
+
+	@Override
+	public GeneratedResult analyze(String text, List<ClarificationAnswer> answers) {
+		try {
+			JsonNode body = rest.post()
+				.uri("/v1/analyze")
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(json.writeValueAsBytes(Map.of("text", text, "answers", answers)))
+				.exchange((request, response) -> read(response.getStatusCode().is2xxSuccessful(),
+						response.getBody().readAllBytes()), true);
+			JsonNode usage = body.required("usage");
+			return new GeneratedResult(body.required("result"),
+					new AiUsage(usage.required("provider").asString(), usage.required("model").asString(),
+							usage.required("promptVersion").asString(), usage.required("inputTokens").asInt(),
+							usage.required("outputTokens").asInt()));
 		}
 		catch (RestClientException | JacksonException ex) {
 			throw new AiServiceException(UNAVAILABLE);

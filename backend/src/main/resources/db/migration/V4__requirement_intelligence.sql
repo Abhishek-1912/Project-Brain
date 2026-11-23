@@ -216,6 +216,28 @@ CREATE POLICY story_reviews_select ON brain.story_reviews FOR SELECT TO brain_ap
 CREATE POLICY story_reviews_insert ON brain.story_reviews FOR INSERT TO brain_app
     WITH CHECK (organization_id = brain.current_org_id());
 
+-- Startup recovery crosses tenants, so it is limited to failing runs left active by a stopped server.
+CREATE POLICY ai_runs_recovery_select ON brain.ai_runs FOR SELECT TO brain_migrator
+    USING (status IN ('QUEUED', 'RUNNING') OR (status = 'FAILED' AND error_code = 'ABANDONED'));
+CREATE POLICY ai_runs_recovery_update ON brain.ai_runs FOR UPDATE TO brain_migrator
+    USING (status IN ('QUEUED', 'RUNNING'))
+    WITH CHECK (status = 'FAILED' AND error_code = 'ABANDONED');
+
+CREATE FUNCTION brain.fail_abandoned_ai_runs() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+    affected integer;
+BEGIN
+    UPDATE brain.ai_runs
+    SET status = 'FAILED', error_code = 'ABANDONED', finished_at = now()
+    WHERE status IN ('QUEUED', 'RUNNING');
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    RETURN affected;
+END;
+$$;
+REVOKE ALL ON FUNCTION brain.fail_abandoned_ai_runs() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION brain.fail_abandoned_ai_runs() TO brain_app;
+
 GRANT SELECT, INSERT, UPDATE ON brain.requirement_documents, brain.ai_runs, brain.clarification_questions TO brain_app;
 GRANT SELECT, INSERT ON brain.requirement_document_files, brain.requirement_analyses, brain.story_reviews TO brain_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON brain.story_drafts TO brain_app;

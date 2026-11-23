@@ -311,6 +311,11 @@ class RequirementDocumentApiTest extends TeamApiTestBase {
 			return new ExtractedText(text, text.length());
 		}
 
+		@Override
+		public GeneratedResult analyze(String text, List<ClarificationAnswer> answers) {
+			throw new UnsupportedOperationException();
+		}
+
 	}
 
 	@TestConfiguration
