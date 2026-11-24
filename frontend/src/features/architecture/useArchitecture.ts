@@ -144,3 +144,111 @@ export function sectionsOf(version: ArchitectureVersion) {
     apiDesign: version.apiDesign as unknown as ApiDesign,
   }
 }
+
+export type SectionKey = 'overview' | 'dataModel' | 'apiDesign'
+
+export const SECTION_PATHS: Record<SectionKey, 'overview' | 'data-model' | 'api-design'> = {
+  overview: 'overview',
+  dataModel: 'data-model',
+  apiDesign: 'api-design',
+}
+
+export const SECTION_LABELS: Record<SectionKey, string> = {
+  overview: 'overview',
+  dataModel: 'data model',
+  apiDesign: 'API design',
+}
+
+export type ArchitectureReview = components['schemas']['ArchitectureReview']
+
+const reviewsKey = (orgId: string, versionId: string) => ['architecture-reviews', orgId, versionId] as const
+
+export function useArchitectureReviews(orgId: string, versionId: string) {
+  return useQuery({
+    queryKey: reviewsKey(orgId, versionId),
+    queryFn: async () => {
+      const { data } = await api.GET('/organizations/{orgId}/architecture-versions/{versionId}/reviews', {
+        params: { path: { orgId, versionId }, query: { size: 100 } },
+      })
+      return data!.items
+    },
+  })
+}
+
+/** Stores the server's copy and refreshes everything that lists versions. */
+function useVersionChanged(orgId: string, projectId: string) {
+  const queryClient = useQueryClient()
+  return (version: ArchitectureVersion) => {
+    queryClient.setQueryData(versionKey(orgId, version.id), version)
+    return Promise.all([
+      queryClient.invalidateQueries({ queryKey: stateKey(orgId, projectId) }),
+      queryClient.invalidateQueries({ queryKey: versionsKey(orgId, projectId) }),
+      queryClient.invalidateQueries({ queryKey: reviewsKey(orgId, version.id) }),
+    ])
+  }
+}
+
+export function useUpdateArchitectureSection(orgId: string, projectId: string) {
+  const onSuccess = useVersionChanged(orgId, projectId)
+  return useMutation({
+    mutationFn: async ({
+      versionId,
+      section,
+      content,
+      version,
+    }: {
+      versionId: string
+      section: SectionKey
+      content: object
+      version: number
+    }) => {
+      const { data } = await api.PATCH('/organizations/{orgId}/architecture-versions/{versionId}/{section}', {
+        params: { path: { orgId, versionId, section: SECTION_PATHS[section] } },
+        body: { content: content as Record<string, unknown>, version },
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useApproveArchitecture(orgId: string, projectId: string) {
+  const onSuccess = useVersionChanged(orgId, projectId)
+  return useMutation({
+    mutationFn: async ({ versionId, version }: { versionId: string; version: number }) => {
+      const { data } = await api.POST('/organizations/{orgId}/architecture-versions/{versionId}/approve', {
+        params: { path: { orgId, versionId } },
+        body: { version },
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useRejectArchitecture(orgId: string, projectId: string) {
+  const onSuccess = useVersionChanged(orgId, projectId)
+  return useMutation({
+    mutationFn: async ({ versionId, version, comment }: { versionId: string; version: number; comment: string }) => {
+      const { data } = await api.POST('/organizations/{orgId}/architecture-versions/{versionId}/reject', {
+        params: { path: { orgId, versionId } },
+        body: { version, comment },
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export async function downloadArchitectureMarkdown(orgId: string, versionId: string, versionNumber: number) {
+  const { data } = await api.GET('/organizations/{orgId}/architecture-versions/{versionId}/markdown', {
+    params: { path: { orgId, versionId } },
+    parseAs: 'text',
+  })
+  const url = URL.createObjectURL(new Blob([data as string], { type: 'text/markdown' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `architecture-v${versionNumber}.md`
+  link.click()
+  URL.revokeObjectURL(url)
+}

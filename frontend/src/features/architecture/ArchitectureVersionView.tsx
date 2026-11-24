@@ -1,14 +1,20 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { InlineAlert } from '../../components/InlineAlert'
 import { LoadingState } from '../../components/LoadingState'
 import { useCurrentOrg } from '../organizations/useOrganizations'
-import { TestModeBanner } from '../requirements/TestModeBanner'
+import { primaryButton, quietButton, TestModeBanner } from '../requirements/TestModeBanner'
+import { ArchitectureReview } from './ArchitectureReview'
+import { normalizeSection, type SectionValue } from './sectionContent'
+import { SectionEditor } from './SectionEditor'
 import {
+  SECTION_LABELS,
   VERSION_STATUS,
   sectionsOf,
   useArchitectureVersion,
+  useUpdateArchitectureSection,
+  type SectionKey,
   type ApiDesign,
   type ArchitectureVersion,
   type DataModel,
@@ -22,10 +28,57 @@ export function ArchitectureVersionView() {
   return <VersionPage key={`${org.id}:${versionId}`} projectId={projectId} versionId={versionId} />
 }
 
+interface Editing {
+  section: SectionKey
+  original: SectionValue
+  draft: SectionValue
+}
+
 function VersionPage({ projectId, versionId }: { projectId: string; versionId: string }) {
   const { org } = useCurrentOrg()
   const version = useArchitectureVersion(org.id, versionId)
+  const update = useUpdateArchitectureSection(org.id, projectId)
+  const [editing, setEditing] = useState<Editing | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [conflict, setConflict] = useState(false)
   const basePath = `/orgs/${org.id}/projects/${projectId}/architecture`
+
+  function startEditing(section: SectionKey, data: ArchitectureVersion) {
+    const value = sectionsOf(data)[section] as SectionValue
+    // A deep copy, so editing never changes the cached server copy.
+    const copy = JSON.parse(JSON.stringify(value)) as SectionValue
+    setEditing({ section, original: copy, draft: copy })
+    setError(null)
+    setConflict(false)
+  }
+
+  function save(data: ArchitectureVersion) {
+    if (!editing) return
+    setError(null)
+    update.mutate(
+      {
+        versionId: data.id,
+        section: editing.section,
+        content: normalizeSection(editing.section, editing.draft),
+        version: data.version,
+      },
+      {
+        onSuccess: () => {
+          setEditing(null)
+          setConflict(false)
+        },
+        onError: (cause) => {
+          setConflict(cause instanceof ApiError && cause.status === 409)
+          setError(cause instanceof ApiError ? cause.message : 'That didn’t save. Check your connection, then try again.')
+        },
+      },
+    )
+  }
+
+  async function reload() {
+    const latest = await version.refetch()
+    if (latest.data && editing) startEditing(editing.section, latest.data)
+  }
 
   if (version.isPending) return <LoadingState label="Loading version" />
   if (!version.data) {
@@ -52,27 +105,95 @@ function VersionPage({ projectId, versionId }: { projectId: string; versionId: s
         <span className={`rounded px-1.5 py-0.5 text-xs ${status.className}`}>{status.label}</span>
       </div>
       <TestModeBanner />
-      <VersionSections version={data} />
+      <VersionSections
+        version={data}
+        editing={editing?.section ?? null}
+        editor={
+          editing && (
+            <div>
+              <SectionEditor
+                section={editing.section}
+                value={editing.draft}
+                onChange={(draft) => setEditing({ ...editing, draft })}
+              />
+              {error && (
+                <div role="alert" className="mt-3 text-sm text-error-text">
+                  <p>{error}</p>
+                  {conflict && (
+                    <button type="button" className={`${quietButton} mt-1`} onClick={() => void reload()}>
+                      Reload latest
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="mt-4 flex gap-2">
+                <button type="button" className={primaryButton} disabled={update.isPending} onClick={() => save(data)}>
+                  Save {SECTION_LABELS[editing.section]}
+                </button>
+                <button type="button" className={quietButton} onClick={() => setEditing(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )
+        }
+        actions={
+          data.canEdit && !editing
+            ? {
+                overview: <EditButton section="overview" onClick={() => startEditing('overview', data)} />,
+                dataModel: <EditButton section="dataModel" onClick={() => startEditing('dataModel', data)} />,
+                apiDesign: <EditButton section="apiDesign" onClick={() => startEditing('apiDesign', data)} />,
+              }
+            : undefined
+        }
+      />
+      <ArchitectureReview orgId={org.id} version={data} editing={Boolean(editing)} />
     </section>
   )
 }
 
-export function VersionSections({ version, editors }: { version: ArchitectureVersion; editors?: SectionEditors }) {
-  const { overview, dataModel, apiDesign } = sectionsOf(version)
-  const titles = new Map(version.stories.map((story) => [story.id, story.title]))
+function EditButton({ section, onClick }: { section: SectionKey; onClick(): void }) {
   return (
-    <div className="space-y-10">
-      <OverviewSection overview={overview} action={editors?.overview} />
-      <DataModelSection dataModel={dataModel} titles={titles} action={editors?.dataModel} />
-      <ApiSection apiDesign={apiDesign} titles={titles} action={editors?.apiDesign} />
-    </div>
+    <button type="button" className={quietButton} onClick={onClick}>
+      Edit {SECTION_LABELS[section]}
+    </button>
   )
 }
 
-export interface SectionEditors {
-  overview?: ReactNode
-  dataModel?: ReactNode
-  apiDesign?: ReactNode
+const SECTION_TITLES: Record<SectionKey, string> = { overview: 'Overview', dataModel: 'Data model', apiDesign: 'API design' }
+
+function VersionSections({
+  version,
+  editing,
+  editor,
+  actions,
+}: {
+  version: ArchitectureVersion
+  editing: SectionKey | null
+  editor: ReactNode
+  actions?: Partial<Record<SectionKey, ReactNode>>
+}) {
+  const { overview, dataModel, apiDesign } = sectionsOf(version)
+  const titles = new Map(version.stories.map((story) => [story.id, story.title]))
+  const editingView = (section: SectionKey) => (
+    <section>
+      <SectionHeading title={SECTION_TITLES[section]} />
+      {editor}
+    </section>
+  )
+  return (
+    <div className="space-y-10">
+      {editing === 'overview' ? editingView('overview') : (
+        <OverviewSection overview={overview} action={actions?.overview} />
+      )}
+      {editing === 'dataModel' ? editingView('dataModel') : (
+        <DataModelSection dataModel={dataModel} titles={titles} action={actions?.dataModel} />
+      )}
+      {editing === 'apiDesign' ? editingView('apiDesign') : (
+        <ApiSection apiDesign={apiDesign} titles={titles} action={actions?.apiDesign} />
+      )}
+    </div>
+  )
 }
 
 function SectionHeading({ title, action }: { title: string; action?: ReactNode }) {
