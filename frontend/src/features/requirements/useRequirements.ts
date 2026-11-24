@@ -31,6 +31,7 @@ const RUN_ERRORS: Record<string, string> = {
   ACCESS_REVOKED: 'The person who started this run no longer has access, so nothing was saved.',
   PROJECT_ARCHIVED: 'The project was archived during this run, so nothing was saved.',
   ABANDONED: 'The server restarted during this run, so nothing was saved. Try again.',
+  INPUTS_CHANGED: 'The approved stories changed as the run started, so nothing was saved. Try again.',
 }
 
 export function runErrorMessage(code: string | null) {

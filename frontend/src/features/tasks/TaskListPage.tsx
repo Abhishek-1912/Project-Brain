@@ -224,6 +224,7 @@ function ProjectTasks({ projectId }: { projectId: string }) {
         <Link to={projectsPath}>Back to projects</Link>
         <span className="flex flex-wrap gap-4">
           <Link to={`${projectsPath}/projects/${projectId}/requirements`}>Requirements</Link>
+          <Link to={`${projectsPath}/projects/${projectId}/architecture`}>Architecture</Link>
           <Link to={`${projectsPath}/projects/${projectId}/team`}>Project team</Link>
         </span>
       </div>
