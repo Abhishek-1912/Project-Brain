@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from .config import MAX_FILE_BYTES, MAX_TEXT_CHARACTERS
 from .extract import ExtractionError, extract_text
-from .gemini import get_provider
+from .providers import get_provider
 from .generation import analyze as run_analysis
 from .generation import generate_stories, run_architecture_step
 from .provider import AiProvider, ProviderError

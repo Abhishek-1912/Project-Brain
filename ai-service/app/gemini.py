@@ -67,7 +67,7 @@ def _count(response, field: str) -> int:
     return getattr(response.usage_metadata, field, None) or 0
 
 
-def get_provider() -> GeminiProvider:
+def get_gemini_provider() -> GeminiProvider:
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise ProviderError("PROVIDER_ERROR")

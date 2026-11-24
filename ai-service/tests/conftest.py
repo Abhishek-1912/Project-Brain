@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.gemini import get_provider
+from app.providers import get_provider
 from app.main import app
 from app.provider import ProviderResult
 
