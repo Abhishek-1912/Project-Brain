@@ -13,6 +13,19 @@ public interface AiServiceClient {
 
 	GeneratedResult generateStories(StoriesRequest request);
 
+	/** Runs one architecture step. Null fields are left out of the request, because the service rejects extras. */
+	default GeneratedResult architectureStep(String step, ArchitectureStepRequest request) {
+		throw new UnsupportedOperationException("Architecture steps are not available in this client");
+	}
+
+	record ArchitectureStoryInput(String key, String title, String asA, String iWant, String soThat,
+			List<String> acceptanceCriteria, String priority) {
+	}
+
+	record ArchitectureStepRequest(List<ArchitectureStoryInput> stories, JsonNode startingPoint, JsonNode overview,
+			JsonNode dataModel) {
+	}
+
 	record ExtractedText(String text, int characters) {
 	}
 
