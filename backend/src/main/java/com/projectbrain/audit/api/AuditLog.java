@@ -8,4 +8,8 @@ public interface AuditLog {
 
 	void record(UUID orgId, String action, String entityType, UUID entityId, Map<String, Object> metadata);
 
+	/** For background work, where there is no signed-in request to take the actor from. */
+	void recordAs(UUID actorId, UUID orgId, String action, String entityType, UUID entityId,
+			Map<String, Object> metadata);
+
 }

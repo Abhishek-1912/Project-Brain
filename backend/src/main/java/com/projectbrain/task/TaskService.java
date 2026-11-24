@@ -20,15 +20,18 @@ import com.projectbrain.shared.web.NotFoundException;
 import com.projectbrain.shared.web.PageParams;
 import com.projectbrain.shared.web.PageResponse;
 import com.projectbrain.shared.web.UnprocessableException;
+import com.projectbrain.task.api.TaskCreator;
 import com.projectbrain.team.api.JobRoleLookup;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
-class TaskService {
+class TaskService implements TaskCreator {
 
 	private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id"));
 
@@ -97,6 +100,17 @@ class TaskService {
 			tasks.saveAndFlush(task);
 			return TaskView.from(task);
 		});
+	}
+
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY)
+	public UUID createFromStory(UUID orgId, UUID projectId, UUID storyId, String title, String description,
+			String priority, UUID jobRoleId) {
+		Task task = new Task(UUID.randomUUID(), orgId, projectId, title, description, TaskStatus.BACKLOG,
+				TaskPriority.valueOf(priority), null, null, jobRoleId, currentUser.get().id());
+		task.setSourceStoryId(storyId);
+		tasks.saveAndFlush(task);
+		return task.getId();
 	}
 
 	TaskView get(UUID orgId, UUID taskId) {

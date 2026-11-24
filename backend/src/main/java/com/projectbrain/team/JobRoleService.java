@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
@@ -79,6 +80,28 @@ class JobRoleService implements JobRoleLookup, OrganizationInitializer {
 		if (!active) {
 			throw new UnprocessableException("The job role is not active in this organization.");
 		}
+	}
+
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY)
+	public Optional<UUID> findActiveByName(UUID orgId, String name) {
+		return jdbc.sql("""
+				SELECT id FROM brain.job_roles
+				WHERE organization_id = :orgId AND lower(name) = lower(:name) AND active
+				""")
+			.param("orgId", orgId)
+			.param("name", name)
+			.query(UUID.class)
+			.optional();
+	}
+
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY)
+	public List<String> activeNames(UUID orgId) {
+		return jdbc.sql("SELECT name FROM brain.job_roles WHERE organization_id = :orgId AND active ORDER BY lower(name)")
+			.param("orgId", orgId)
+			.query(String.class)
+			.list();
 	}
 
 	PageResponse<JobRole> list(UUID orgId, PageParams paging) {

@@ -50,15 +50,19 @@ public class OrgTx {
 	}
 
 	public <T> T inOrg(UUID orgId, Permission required, Supplier<T> work) {
-		CurrentUser user = currentUser.get();
+		return inOrgAs(currentUser.get().id(), orgId, required, work);
+	}
+
+	/** For background work with no request: re-checks the user's current membership and role. */
+	public <T> T inOrgAs(UUID userId, UUID orgId, Permission required, Supplier<T> work) {
 		return transactions.execute(status -> {
-			setContext(user.id(), "");
+			setContext(userId, "");
 			Role role = jdbc.sql("""
 					SELECT role FROM brain.organization_members
 					WHERE organization_id = :orgId AND user_id = :userId
 					""")
 				.param("orgId", orgId)
-				.param("userId", user.id())
+				.param("userId", userId)
 				.query(String.class)
 				.optional()
 				.map(Role::valueOf)
@@ -66,7 +70,18 @@ public class OrgTx {
 			if (!role.allows(required)) {
 				throw new ForbiddenException("Your role does not permit this action.");
 			}
-			setContext(user.id(), orgId.toString());
+			setContext(userId, orgId.toString());
+			return work.get();
+		});
+	}
+
+	/**
+	 * Skips the membership check, so a background job can record that it failed after the user lost access. Never use
+	 * it to read or change business data.
+	 */
+	public <T> T withOrgContext(UUID userId, UUID orgId, Supplier<T> work) {
+		return transactions.execute(status -> {
+			setContext(userId, orgId.toString());
 			return work.get();
 		});
 	}
@@ -83,6 +98,21 @@ public class OrgTx {
 			.param("userId", userId)
 			.query(Boolean.class)
 			.single();
+	}
+
+	/** Must run inside inOrg for the same organization, because row-level security limits what it can see. */
+	public boolean hasPermission(UUID orgId, UUID userId, Permission permission) {
+		return jdbc.sql("""
+				SELECT role FROM brain.organization_members
+				WHERE organization_id = :orgId AND user_id = :userId
+				""")
+			.param("orgId", orgId)
+			.param("userId", userId)
+			.query(String.class)
+			.optional()
+			.map(Role::valueOf)
+			.filter(role -> role.allows(permission))
+			.isPresent();
 	}
 
 	private void setContext(UUID userId, String orgId) {

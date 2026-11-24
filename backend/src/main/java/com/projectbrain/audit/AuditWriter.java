@@ -29,13 +29,20 @@ class AuditWriter implements AuditLog {
 	@Override
 	@Transactional(propagation = Propagation.MANDATORY)
 	public void record(UUID orgId, String action, String entityType, UUID entityId, Map<String, Object> metadata) {
+		recordAs(currentUser.get().id(), orgId, action, entityType, entityId, metadata);
+	}
+
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void recordAs(UUID actorId, UUID orgId, String action, String entityType, UUID entityId,
+			Map<String, Object> metadata) {
 		jdbc.sql("""
 				INSERT INTO brain.audit_events (id, organization_id, actor_id, action, entity_type, entity_id, metadata)
 				VALUES (:id, :orgId, :actorId, :action, :entityType, :entityId, CAST(:metadata AS jsonb))
 				""")
 			.param("id", UUID.randomUUID())
 			.param("orgId", orgId)
-			.param("actorId", currentUser.get().id())
+			.param("actorId", actorId)
 			.param("action", action)
 			.param("entityType", entityType)
 			.param("entityId", entityId)

@@ -24,6 +24,8 @@ tags:
     description: Organization projects
   - name: Tasks
     description: Project tasks
+  - name: Requirements
+    description: Requirement documents and AI analysis
   - name: Audit
     description: Audit events
 
@@ -748,6 +750,337 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/projects/{projectId}/requirements:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Requirements]
+      operationId: listRequirementDocuments
+      summary: List a project's requirement documents
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Requirement documents
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDocumentPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      tags: [Requirements]
+      operationId: uploadRequirementDocument
+      summary: Upload a dummy PRD (owner or admin)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/RequirementUpload' }
+      responses:
+        '201':
+          description: Document uploaded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDocument' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413':
+          description: Upload is too large
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503':
+          description: AI service is unavailable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /organizations/{orgId}/requirements/{documentId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags: [Requirements]
+      operationId: getRequirementDocument
+      summary: Get a requirement document without its text
+      responses:
+        '200':
+          description: Requirement document
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/requirements/{documentId}/analyze:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags: [Requirements]
+      operationId: analyzeRequirementDocument
+      summary: Start an AI analysis run (owner, admin, or manager)
+      responses:
+        '202':
+          description: Analysis run accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRunAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: Too many AI runs are waiting
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /organizations/{orgId}/requirements/{documentId}/analysis:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags: [Requirements]
+      operationId: getRequirementAnalysis
+      summary: Get the latest analysis, its questions, and the latest run
+      responses:
+        '200':
+          description: Latest analysis state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementAnalysisState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/ai-runs/{runId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: runId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Requirements]
+      operationId: getAiRun
+      summary: Get an AI run's status and usage
+      responses:
+        '200':
+          description: AI run
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRun' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/clarifications/{questionId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: questionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Requirements]
+      operationId: updateClarification
+      summary: Answer a question or mark it not needed (owner, admin, or requirements approver)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClarificationUpdate' }
+      responses:
+        '200':
+          description: Updated question
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClarificationQuestion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/requirements/{documentId}/stories/generate:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags: [Requirements]
+      operationId: generateStories
+      summary: Start an AI story generation run (owner or admin)
+      responses:
+        '202':
+          description: Story generation run accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRunAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: Too many AI runs are waiting
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /organizations/{orgId}/requirements/{documentId}/stories:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    get:
+      tags: [Requirements]
+      operationId: listStories
+      summary: List a document's stories in generated order
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Stories
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraftPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/stories/{storyId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Requirements]
+      operationId: updateStory
+      summary: Replace a story's fields; a decided story returns to draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryUpdate' }
+      responses:
+        '200':
+          description: Updated story
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/stories/{storyId}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Requirements]
+      operationId: listStoryReviews
+      summary: List a story's review history, oldest first
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Story review history
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryReviewPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/stories/{storyId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Requirements]
+      operationId: approveStory
+      summary: Approve a draft story (eligible requirements approver)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryApproval' }
+      responses:
+        '200':
+          description: Approved story
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/stories/{storyId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Requirements]
+      operationId: rejectStory
+      summary: Reject a draft story with a comment (eligible requirements approver)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryRejection' }
+      responses:
+        '200':
+          description: Rejected story
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDraft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/requirements/{documentId}/create-tasks:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/DocumentId'
+    post:
+      tags: [Requirements]
+      operationId: createTasksFromStories
+      summary: Convert approved stories into backlog tasks; repeating creates no duplicates
+      responses:
+        '200':
+          description: Tasks created by this request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateTasksResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -782,6 +1115,12 @@ components:
       in: path
       required: true
       description: Organization ID
+      schema: { type: string, format: uuid }
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      description: Requirement document ID
       schema: { type: string, format: uuid }
     UserId:
       name: userId
@@ -1167,6 +1506,208 @@ components:
         approvalBasis: { $ref: '#/components/schemas/ApprovalBasis' }
         selfApproval: { type: boolean }
 
+    AiRunAccepted:
+      type: object
+      required: [runId]
+      properties:
+        runId: { type: string, format: uuid }
+    AiRun:
+      type: object
+      required: [id, documentId, runType, status, provider, model, promptVersion, inputTokens, outputTokens, billingTier, costUsd, errorCode, createdAt, startedAt, finishedAt]
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        runType: { type: string, enum: [ANALYSIS, STORIES] }
+        status: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED] }
+        provider: { type: [string, 'null'] }
+        model: { type: [string, 'null'] }
+        promptVersion: { type: [string, 'null'] }
+        inputTokens: { type: integer }
+        outputTokens: { type: integer }
+        billingTier: { type: string, enum: [FREE, PAID] }
+        costUsd: { type: number }
+        errorCode: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [string, 'null'], format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+    RequirementAnalysis:
+      type: object
+      required: [id, version, result, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer }
+        result: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    ClarificationQuestion:
+      type: object
+      required: [id, position, question, reason, status, answer, version]
+      properties:
+        id: { type: string, format: uuid }
+        position: { type: integer }
+        question: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [OPEN, ANSWERED, DISMISSED] }
+        answer: { type: [string, 'null'] }
+        version: { type: integer, format: int64 }
+    ClarificationUpdate:
+      type: object
+      required: [status, version]
+      properties:
+        status: { type: string, enum: [ANSWERED, DISMISSED] }
+        answer: { type: [string, 'null'], maxLength: 5000 }
+        version: { type: integer, format: int64 }
+    StorySourceQuote:
+      type: object
+      required: [quote, verified]
+      properties:
+        quote: { type: string }
+        verified: { type: boolean }
+    StoryDraft:
+      type: object
+      required: [id, documentId, analysisId, title, asA, iWant, soThat, acceptanceCriteria, priority, jobRoleId, sourceQuotes, status, taskId, generatedBy, createdAt, updatedAt, version, canReview]
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        analysisId: { type: string, format: uuid }
+        title: { type: string }
+        asA: { type: string }
+        iWant: { type: string }
+        soThat: { type: string }
+        acceptanceCriteria:
+          type: array
+          items: { type: string }
+        priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
+        jobRoleId: { type: [string, 'null'], format: uuid }
+        sourceQuotes:
+          type: array
+          items: { $ref: '#/components/schemas/StorySourceQuote' }
+        status: { type: string, enum: [DRAFT, APPROVED, REJECTED, CONVERTED] }
+        taskId: { type: [string, 'null'], format: uuid }
+        generatedBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+        canReview:
+          type: boolean
+          description: True when the signed-in user can approve or reject this story now.
+    StoryDraftPage:
+      type: object
+      required: [items, page, size, totalItems]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/StoryDraft' }
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
+    StoryUpdate:
+      type: object
+      required: [title, asA, iWant, soThat, acceptanceCriteria, priority, version]
+      properties:
+        title: { type: string, maxLength: 200 }
+        asA: { type: string, maxLength: 300 }
+        iWant: { type: string, maxLength: 1000 }
+        soThat: { type: string, maxLength: 1000 }
+        acceptanceCriteria:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, maxLength: 1000 }
+        priority: { type: string, enum: [LOW, MEDIUM, HIGH, URGENT] }
+        jobRoleId: { type: [string, 'null'], format: uuid }
+        version: { type: integer, format: int64 }
+    StoryReview:
+      type: object
+      required: [id, storyVersion, action, actorId, approvalBasis, selfApproved, comment, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        storyVersion: { type: integer, format: int64 }
+        action: { type: string, enum: [SUBMITTED, APPROVED, REJECTED, REOPENED] }
+        actorId: { type: string, format: uuid }
+        approvalBasis:
+          type: [string, 'null']
+          enum: [ROLE_HOLDER, OWNER_FALLBACK, null]
+        selfApproved: { type: boolean }
+        comment: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    StoryReviewPage:
+      type: object
+      required: [items, page, size, totalItems]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/StoryReview' }
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
+    StoryApproval:
+      type: object
+      required: [version]
+      properties:
+        version: { type: integer, format: int64 }
+    StoryRejection:
+      type: object
+      required: [version, comment]
+      properties:
+        version: { type: integer, format: int64 }
+        comment: { type: string, minLength: 1, maxLength: 2000 }
+    CreateTasksResult:
+      type: object
+      required: [created]
+      properties:
+        created:
+          type: array
+          items:
+            type: object
+            required: [storyId, taskId]
+            properties:
+              storyId: { type: string, format: uuid }
+              taskId: { type: string, format: uuid }
+    RequirementAnalysisState:
+      type: object
+      required: [analysis, questions, latestRun, latestStoryRun]
+      properties:
+        analysis:
+          anyOf:
+            - $ref: '#/components/schemas/RequirementAnalysis'
+            - type: 'null'
+        questions:
+          type: array
+          items: { $ref: '#/components/schemas/ClarificationQuestion' }
+        latestRun:
+          anyOf:
+            - $ref: '#/components/schemas/AiRun'
+            - type: 'null'
+        latestStoryRun:
+          anyOf:
+            - $ref: '#/components/schemas/AiRun'
+            - type: 'null'
+    RequirementDocument:
+      type: object
+      required: [id, organizationId, projectId, name, mediaType, sizeBytes, characters, approverJobRoleId, uploadedBy, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        name: { type: string }
+        mediaType: { type: string }
+        sizeBytes: { type: integer }
+        characters: { type: integer }
+        approverJobRoleId: { type: [string, 'null'], format: uuid }
+        uploadedBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    RequirementUpload:
+      type: object
+      required: [file, dummyDataConfirmed]
+      properties:
+        file: { type: string, format: binary }
+        dummyDataConfirmed:
+          type: boolean
+          description: Must be true. Phase 2 accepts dummy documents only.
+        approverJobRoleId: { type: string, format: uuid }
+
     AuditEvent:
       type: object
       required: [id, organizationId, actorId, action, entityType, entityId, metadata, createdAt]
@@ -1234,6 +1775,15 @@ components:
             items:
               type: array
               items: { $ref: '#/components/schemas/ReviewQueueItem' }
+    RequirementDocumentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/RequirementDocument' }
     JobRolePage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'

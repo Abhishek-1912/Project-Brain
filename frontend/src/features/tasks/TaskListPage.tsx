@@ -222,7 +222,10 @@ function ProjectTasks({ projectId }: { projectId: string }) {
     <section>
       <div className="flex flex-wrap justify-between gap-3 text-sm">
         <Link to={projectsPath}>Back to projects</Link>
-        <Link to={`${projectsPath}/projects/${projectId}/team`}>Project team</Link>
+        <span className="flex flex-wrap gap-4">
+          <Link to={`${projectsPath}/projects/${projectId}/requirements`}>Requirements</Link>
+          <Link to={`${projectsPath}/projects/${projectId}/team`}>Project team</Link>
+        </span>
       </div>
       <div className="mt-3 mb-4 flex min-h-9 flex-wrap items-center justify-between gap-3">
         <h2 className="min-w-0 text-lg font-semibold break-words text-text-primary">
