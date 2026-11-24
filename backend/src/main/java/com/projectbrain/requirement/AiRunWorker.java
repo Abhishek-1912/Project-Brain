@@ -43,6 +43,8 @@ class AiRunWorker {
 
 	private final StoryService stories;
 
+	private final ArchitectureRunner architecture;
+
 	private final AiServiceClient ai;
 
 	private final ProjectLookup projects;
@@ -52,11 +54,12 @@ class AiRunWorker {
 	private final ThreadPoolTaskExecutor executor;
 
 	AiRunWorker(OrgTx orgTx, AiRunStore store, AnalysisService analyses, StoryService stories, AiServiceClient ai,
-			ProjectLookup projects, AuditLog auditLog) {
+			ProjectLookup projects, AuditLog auditLog, ArchitectureRunner architecture) {
 		this.orgTx = orgTx;
 		this.store = store;
 		this.analyses = analyses;
 		this.stories = stories;
+		this.architecture = architecture;
 		this.ai = ai;
 		this.projects = projects;
 		this.auditLog = auditLog;
@@ -87,7 +90,10 @@ class AiRunWorker {
 
 	private void run(Job job) {
 		try {
-			if ("STORIES".equals(job.runType())) {
+			if ("ARCHITECTURE".equals(job.runType())) {
+				architecture.run(job);
+			}
+			else if ("STORIES".equals(job.runType())) {
 				execute(job, () -> stories.loadInput(job.orgId(), job.documentId()),
 						input -> ai.generateStories(input.request()),
 						(input, generated) -> stories.save(job.orgId(), job.projectId(), job.documentId(), job.runId(),
@@ -192,7 +198,13 @@ class AiRunWorker {
 		return "INTERNAL_ERROR";
 	}
 
-	record Job(UUID runId, UUID orgId, UUID projectId, UUID documentId, UUID actor, String runType) {
+	/** approverRoleId is set only for architecture runs, which store it on the version they create. */
+	record Job(UUID runId, UUID orgId, UUID projectId, UUID documentId, UUID actor, String runType, UUID approverRoleId) {
+
+		Job(UUID runId, UUID orgId, UUID projectId, UUID documentId, UUID actor, String runType) {
+			this(runId, orgId, projectId, documentId, actor, runType, null);
+		}
+
 	}
 
 }

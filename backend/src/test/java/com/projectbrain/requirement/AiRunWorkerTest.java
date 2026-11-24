@@ -29,7 +29,7 @@ class AiRunWorkerTest {
 		when(orgTx.withOrgContext(any(), any(), any())).thenThrow(new QueryTimeoutException("database"))
 			.thenAnswer(call -> call.<Supplier<?>>getArgument(2).get());
 		AiRunWorker worker = new AiRunWorker(orgTx, store, mock(AnalysisService.class), mock(StoryService.class),
-				mock(AiServiceClient.class), mock(ProjectLookup.class), mock(AuditLog.class));
+				mock(AiServiceClient.class), mock(ProjectLookup.class), mock(AuditLog.class), mock(ArchitectureRunner.class));
 
 		worker.submit(new AiRunWorker.Job(run, org, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "ANALYSIS"));
 

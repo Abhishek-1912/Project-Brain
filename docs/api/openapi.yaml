@@ -860,6 +860,31 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /organizations/{orgId}/projects/{projectId}/architecture/generate:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [Architecture]
+      operationId: generateArchitecture
+      summary: Start a three-step architecture run from the project's approved stories (owner or admin)
+      responses:
+        '202':
+          description: Architecture run accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRunAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503':
+          description: Too many AI runs are waiting
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   /organizations/{orgId}/ai-runs/{runId}:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -1513,11 +1538,14 @@ components:
         runId: { type: string, format: uuid }
     AiRun:
       type: object
-      required: [id, documentId, runType, status, provider, model, promptVersion, inputTokens, outputTokens, billingTier, costUsd, errorCode, createdAt, startedAt, finishedAt]
+      required: [id, documentId, runType, status, provider, model, promptVersion, inputTokens, outputTokens, billingTier, costUsd, errorCode, currentStep, createdAt, startedAt, finishedAt]
       properties:
         id: { type: string, format: uuid }
-        documentId: { type: string, format: uuid }
-        runType: { type: string, enum: [ANALYSIS, STORIES] }
+        documentId:
+          type: [string, 'null']
+          format: uuid
+          description: Null for architecture runs, which belong to a project.
+        runType: { type: string, enum: [ANALYSIS, STORIES, ARCHITECTURE] }
         status: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED] }
         provider: { type: [string, 'null'] }
         model: { type: [string, 'null'] }
@@ -1527,6 +1555,9 @@ components:
         billingTier: { type: string, enum: [FREE, PAID] }
         costUsd: { type: number }
         errorCode: { type: [string, 'null'] }
+        currentStep:
+          type: [string, 'null']
+          enum: [OVERVIEW, DATA_MODEL, API_DESIGN, null]
         createdAt: { type: string, format: date-time }
         startedAt: { type: [string, 'null'], format: date-time }
         finishedAt: { type: [string, 'null'], format: date-time }
