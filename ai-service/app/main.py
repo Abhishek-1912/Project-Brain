@@ -4,13 +4,20 @@ from fastapi import Depends, FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from .config import MAX_FILE_BYTES
+from .config import MAX_FILE_BYTES, MAX_TEXT_CHARACTERS
 from .extract import ExtractionError, extract_text
 from .gemini import get_provider
 from .generation import analyze as run_analysis
-from .generation import generate_stories
+from .generation import generate_stories, run_architecture_step
 from .provider import AiProvider, ProviderError
-from .schemas import AnalyzeRequest, StoriesRequest
+from .prompts import architecture_payload
+from .schemas import (
+    AnalyzeRequest,
+    ArchitectureApiDesignRequest,
+    ArchitectureDataModelRequest,
+    ArchitectureOverviewRequest,
+    StoriesRequest,
+)
 from .security import ServiceGuard
 
 # This is a private service, so it publishes no API documentation.
@@ -63,3 +70,32 @@ def stories(
 ) -> dict[str, Any]:
     result, usage = generate_stories(provider, request)
     return {"result": result.model_dump(by_alias=True), "usage": usage.model_dump(by_alias=True)}
+
+
+def _architecture(step: str, request, provider: AiProvider) -> dict[str, Any]:
+    # Measured on the exact payload Gemini would receive, before any provider call.
+    if len(architecture_payload(request)) > MAX_TEXT_CHARACTERS:
+        raise ExtractionError("TEXT_TOO_LONG", 422)
+    result, usage = run_architecture_step(provider, step, request)
+    return {"result": result.model_dump(by_alias=True), "usage": usage.model_dump(by_alias=True)}
+
+
+@app.post("/v1/architecture/overview")
+def architecture_overview(
+    request: ArchitectureOverviewRequest, provider: AiProvider = Depends(get_provider)
+) -> dict[str, Any]:
+    return _architecture("overview", request, provider)
+
+
+@app.post("/v1/architecture/data-model")
+def architecture_data_model(
+    request: ArchitectureDataModelRequest, provider: AiProvider = Depends(get_provider)
+) -> dict[str, Any]:
+    return _architecture("data-model", request, provider)
+
+
+@app.post("/v1/architecture/api-design")
+def architecture_api_design(
+    request: ArchitectureApiDesignRequest, provider: AiProvider = Depends(get_provider)
+) -> dict[str, Any]:
+    return _architecture("api-design", request, provider)
