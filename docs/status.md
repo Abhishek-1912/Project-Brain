@@ -1,16 +1,16 @@
 # Project Status
 
-Branch: phase-2-requirement-intelligence
+Branch: main
 Phase 1: Complete
 Phase 1.5: Complete and merged into `main` through PR #2
-Phase 2: Working model complete on its branch, for dummy data only. Not merged into `main`.
+Phase 2: Working model complete for dummy data only, and merged into `main` through PR #4
 Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12, Phase 2 Tasks 1 through 10
-Current task: Choose how to finish the Phase 2 branch
+Current task: Plan Phase 3
 Blockers: none
 Phase 1 acceptance: On 2026-11-23, 135 backend tests, 83 frontend tests and the production build passed. The developer confirmed the browser flow against Supabase and the running backend.
 Phase 1.5 acceptance: On 2026-11-23, 236 backend tests, 134 frontend tests, the production build and lint passed. A fresh review found no Critical issues, and its Important findings were fixed. The developer confirmed the two-user browser flow against Supabase and the running backend.
 Phase 2 acceptance: On 2026-11-23, the developer confirmed the browser flow with the dummy PRD, Gemini free tier, Supabase and the running services. A fresh review then found no Critical issues, and its six Important findings were fixed. After those fixes, 63 AI service tests, 341 backend tests, 156 frontend tests, the production build and lint passed. The fixes were not repeated in the live browser flow.
-Database: Migration `V4` is applied to Supabase. `V3` is included in `main`; `V4` is only on the Phase 2 branch until it merges.
+Database: Migration `V4` is applied to Supabase and is included in `main`.
 Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0002-team-and-approval-model.md` and `docs/decisions/0003-ai-service-boundary.md`.
 
 ## Known gaps
