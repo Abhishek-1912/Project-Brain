@@ -613,6 +613,199 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{orgId}/projects/{projectId}/architecture/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a three-step architecture run from the project's approved stories (owner or admin) */
+        post: operations["generateArchitecture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/architecture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** Get the current approved version, the draft, and the latest architecture run */
+        get: operations["getArchitectureState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/architecture/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** List architecture versions, newest first */
+        get: operations["listArchitectureVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/architecture-versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        /** Get one architecture version with its sections and what the caller can do */
+        get: operations["getArchitectureVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/architecture-versions/{versionId}/{section}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+                section: "overview" | "data-model" | "api-design";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Replace one section of a draft (owner, admin, or Architect) */
+        patch: operations["updateArchitectureSection"];
+        trace?: never;
+    };
+    "/organizations/{orgId}/architecture-versions/{versionId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a draft (eligible Architect, or the Owner fallback) */
+        post: operations["approveArchitectureVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/architecture-versions/{versionId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a draft with a comment (eligible Architect, or the Owner fallback) */
+        post: operations["rejectArchitectureVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/architecture-versions/{versionId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        /** List a version's review history, oldest first */
+        get: operations["listArchitectureReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/architecture-versions/{versionId}/markdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        /** Download a version as Markdown */
+        get: operations["downloadArchitectureMarkdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{orgId}/ai-runs/{runId}": {
         parameters: {
             query?: never;
@@ -1106,10 +1299,13 @@ export interface components {
         AiRun: {
             /** Format: uuid */
             id: string;
-            /** Format: uuid */
-            documentId: string;
+            /**
+             * Format: uuid
+             * @description Null for architecture runs, which belong to a project.
+             */
+            documentId: string | null;
             /** @enum {string} */
-            runType: "ANALYSIS" | "STORIES";
+            runType: "ANALYSIS" | "STORIES" | "ARCHITECTURE";
             /** @enum {string} */
             status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
             provider: string | null;
@@ -1121,6 +1317,8 @@ export interface components {
             billingTier: "FREE" | "PAID";
             costUsd: number;
             errorCode: string | null;
+            /** @enum {string|null} */
+            currentStep: "OVERVIEW" | "DATA_MODEL" | "API_DESIGN" | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1231,6 +1429,103 @@ export interface components {
         };
         StoryReviewPage: {
             items: components["schemas"]["StoryReview"][];
+            page: number;
+            size: number;
+            /** Format: int64 */
+            totalItems: number;
+        };
+        ArchitectureVersionSummary: {
+            /** Format: uuid */
+            id: string;
+            versionNumber: number;
+            /** @enum {string} */
+            status: "DRAFT" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            generatedBy: string | null;
+        };
+        ArchitectureVersionSummaryPage: {
+            items: components["schemas"]["ArchitectureVersionSummary"][];
+            page: number;
+            size: number;
+            /** Format: int64 */
+            totalItems: number;
+        };
+        ArchitectureState: {
+            current: components["schemas"]["ArchitectureVersionSummary"] | null;
+            draft: components["schemas"]["ArchitectureVersionSummary"] | null;
+            latestRun: components["schemas"]["AiRun"] | null;
+        };
+        ArchitectureStoryLink: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** @enum {string} */
+            status: "DRAFT" | "APPROVED" | "REJECTED" | "CONVERTED";
+        };
+        ArchitectureVersion: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            versionNumber: number;
+            /** @enum {string} */
+            status: "DRAFT" | "APPROVED" | "REJECTED" | "SUPERSEDED";
+            /** Format: uuid */
+            basedOnVersionId: string | null;
+            /** Format: uuid */
+            approverJobRoleId: string | null;
+            /** @description Summary, components, techStack, decisions, and risks. */
+            overview: {
+                [key: string]: unknown;
+            };
+            /** @description Tables with columns, relations, and storyIds. */
+            dataModel: {
+                [key: string]: unknown;
+            };
+            /** @description Endpoints with fields, roles, and storyIds. */
+            apiDesign: {
+                [key: string]: unknown;
+            };
+            storyIds: string[];
+            stories: components["schemas"]["ArchitectureStoryLink"][];
+            /** Format: uuid */
+            generatedBy: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+            canEdit: boolean;
+            canReview: boolean;
+        };
+        ArchitectureSectionUpdate: {
+            content: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            version: number;
+        };
+        ArchitectureReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            contentVersion: number;
+            /** @enum {string} */
+            action: "APPROVED" | "REJECTED";
+            /** Format: uuid */
+            actorId: string;
+            /** @enum {string} */
+            approvalBasis: "ROLE_HOLDER" | "OWNER_FALLBACK";
+            selfApproved: boolean;
+            comment: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ArchitectureReviewPage: {
+            items: components["schemas"]["ArchitectureReview"][];
             page: number;
             size: number;
             /** Format: int64 */
@@ -2703,6 +2998,288 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RequirementAnalysisState"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    generateArchitecture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Architecture run accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRunAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            /** @description Too many AI runs are waiting */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getArchitectureState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Architecture state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchitectureState"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listArchitectureVersions: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Architecture versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchitectureVersionSummaryPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    getArchitectureVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Architecture version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchitectureVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateArchitectureSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+                section: "overview" | "data-model" | "api-design";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchitectureSectionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchitectureVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    approveArchitectureVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryApproval"];
+            };
+        };
+        responses: {
+            /** @description Approved version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchitectureVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    rejectArchitectureVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryRejection"];
+            };
+        };
+        responses: {
+            /** @description Rejected version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchitectureVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listArchitectureReviews: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Review history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchitectureReviewPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    downloadArchitectureMarkdown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Markdown file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

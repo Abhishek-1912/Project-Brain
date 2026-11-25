@@ -1,16 +1,19 @@
 # Project Status
 
-Branch: main
+Branch: phase-3-architecture-intelligence
 Phase 1: Complete
 Phase 1.5: Complete and merged into `main` through PR #2
 Phase 2: Working model complete for dummy data only, and merged into `main` through PR #4
-Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12, Phase 2 Tasks 1 through 10
-Current task: Plan Phase 3
+Phase 3: Working model complete on its branch, for dummy data only. Not merged into `main`.
+Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12, Phase 2 Tasks 1 through 10, Phase 3 Tasks 1 through 8
+Current task: Final whole-branch review of Phase 3
 Blockers: none
 Phase 1 acceptance: On 2026-11-23, 135 backend tests, 83 frontend tests and the production build passed. The developer confirmed the browser flow against Supabase and the running backend.
 Phase 1.5 acceptance: On 2026-11-23, 236 backend tests, 134 frontend tests, the production build and lint passed. A fresh review found no Critical issues, and its Important findings were fixed. The developer confirmed the two-user browser flow against Supabase and the running backend.
 Phase 2 acceptance: On 2026-11-23, the developer confirmed the browser flow with the dummy PRD, Gemini free tier, Supabase and the running services. A fresh review then found no Critical issues, and its six Important findings were fixed. After those fixes, 63 AI service tests, 341 backend tests, 156 frontend tests, the production build and lint passed. The fixes were not repeated in the live browser flow.
-Database: Migration `V4` is applied to Supabase and is included in `main`.
+Phase 3 acceptance: On 2026-11-24, 90 AI service tests, 396 backend tests, 170 frontend tests, the production build and lint passed. The developer confirmed the architecture browser flow (generate, edit, reject, regenerate, approve, Markdown download, audit) with Supabase, using Groq's `openai/gpt-oss-120b`.
+AI provider: `AI_PROVIDER` chooses `groq` or `gemini` (default). Local development currently uses Groq's free tier.
+Database: Migration `V5` is applied to Supabase. `V4` is included in `main`; `V5` is only on the Phase 3 branch until it merges.
 Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0002-team-and-approval-model.md` and `docs/decisions/0003-ai-service-boundary.md`.
 
 ## Known gaps
@@ -29,7 +32,9 @@ Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0
 - AI run recovery assumes one backend instance. A second instance starting up would mark the first instance's active runs as failed.
 - Regenerating stories replaces all drafts, including hand-edited drafts, after a confirmation.
 - Ten minor Phase 2 review findings are deferred, including differing Python and Spring story limits, older answers on dismissed repeat questions, very short verified quotes, and story-run usage not shown on screen.
-- The AI service has no committed start script yet. It must be started with only `GEMINI_API_KEY`, `AI_SERVICE_TOKEN`, and optional `GEMINI_MODEL`.
+- The AI service has no committed start script yet. It must be started with only its own settings: `AI_PROVIDER`, the chosen provider's key and model, and `AI_SERVICE_TOKEN`.
+- Groq's free tier allows about 8,000 tokens per minute for `openai/gpt-oss-120b`, so larger architecture runs can hit rate limits or be cut off. Try again reuses finished steps.
+- Architecture output is a design document only. It does not generate code, migrations, or diagrams, and is not checked against real code.
 
 ## Development notes
 

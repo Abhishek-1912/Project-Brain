@@ -83,6 +83,18 @@ class HttpAiServiceClient implements AiServiceClient {
 		return generate("/v1/stories", request);
 	}
 
+	private static final Map<String, String> ARCHITECTURE_PATHS = Map.of("OVERVIEW", "/v1/architecture/overview",
+			"DATA_MODEL", "/v1/architecture/data-model", "API_DESIGN", "/v1/architecture/api-design");
+
+	@Override
+	public GeneratedResult architectureStep(String step, ArchitectureStepRequest request) {
+		String path = ARCHITECTURE_PATHS.get(step);
+		if (path == null) {
+			throw new IllegalArgumentException("Unknown architecture step");
+		}
+		return generate(path, ArchitectureRequestBody.of(json, request));
+	}
+
 	private GeneratedResult generate(String path, Object payload) {
 		try {
 			JsonNode body = rest.post()

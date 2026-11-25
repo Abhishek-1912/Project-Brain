@@ -46,6 +46,15 @@ class HttpAiServiceClientTest {
 			exchange.getResponseBody().write(bytes);
 			exchange.close();
 		});
+		server.createContext("/v1/architecture/data-model", exchange -> {
+			authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+			body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+			byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+			exchange.getResponseHeaders().add("Content-Type", "application/json");
+			exchange.sendResponseHeaders(status, bytes.length);
+			exchange.getResponseBody().write(bytes);
+			exchange.close();
+		});
 		server.createContext("/v1/extract", exchange -> {
 			authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
 			body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
@@ -174,6 +183,29 @@ class HttpAiServiceClientTest {
 				assertThat(error.code()).isEqualTo("INVALID_OUTPUT");
 				assertThat(error.usage()).isEqualTo(new AiServiceClient.AiUsage("gemini", "m", "analysis-v1", 70, 30));
 			});
+	}
+
+	@Test
+	void clientPostsStepAndReadsUsage() {
+		response = """
+				{"result":{"tables":[]},
+				 "usage":{"provider":"gemini","model":"m","promptVersion":"architecture-data-model-v1","inputTokens":9,"outputTokens":4}}
+				""";
+		JsonMapper mapper = JsonMapper.builder().build();
+		AiServiceClient.ArchitectureStoryInput story = new AiServiceClient.ArchitectureStoryInput("S1", "Book", "diner",
+				"to book", "a seat", java.util.List.of("Saved"), "HIGH");
+
+		AiServiceClient.GeneratedResult result = client("service-token").architectureStep("DATA_MODEL",
+				new AiServiceClient.ArchitectureStepRequest(java.util.List.of(story), null, mapper.readTree("{\"summary\":\"S\"}"),
+						null));
+
+		assertThat(result.usage().promptVersion()).isEqualTo("architecture-data-model-v1");
+		assertThat(authorization.get()).isEqualTo("Bearer service-token");
+		assertThat(body.get()).contains("\"key\":\"S1\"")
+			.contains("\"asA\":\"diner\"")
+			.contains("\"overview\":{\"summary\":\"S\"}")
+			.doesNotContain("startingPoint")
+			.doesNotContain("dataModel");
 	}
 
 	private HttpAiServiceClient client(String token) {

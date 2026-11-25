@@ -10,6 +10,8 @@ import { SignUpPage } from './auth/SignUpPage'
 import { AppLayout } from './components/AppLayout'
 import { ErrorState } from './components/ErrorState'
 import { LoadingState } from './components/LoadingState'
+import { ArchitecturePage } from './features/architecture/ArchitecturePage'
+import { ArchitectureVersionView } from './features/architecture/ArchitectureVersionView'
 import { AuditLogPage } from './features/audit/AuditLogPage'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
@@ -109,6 +111,8 @@ export function AppRoutes() {
           <Route path="projects/:projectId/team" element={<ProjectTeamPage />} />
           <Route path="projects/:projectId/requirements" element={<RequirementListPage />} />
           <Route path="projects/:projectId/requirements/:documentId" element={<RequirementDetailPage />} />
+          <Route path="projects/:projectId/architecture" element={<ArchitecturePage />} />
+          <Route path="projects/:projectId/architecture/versions/:versionId" element={<ArchitectureVersionView />} />
           <Route path="reviews" element={<MyReviewsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="audit" element={<AuditLogPage />} />

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 from google.genai import errors, types
 
-from app.gemini import GeminiProvider, get_provider
+from app.gemini import GeminiProvider, get_gemini_provider
 from app.provider import ProviderError
 from app.schemas import AnalysisResult
 
@@ -109,7 +109,7 @@ def test_missing_key_is_a_safe_provider_error(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     with pytest.raises(ProviderError) as caught:
-        get_provider()
+        get_gemini_provider()
 
     assert caught.value.code == "PROVIDER_ERROR"
 

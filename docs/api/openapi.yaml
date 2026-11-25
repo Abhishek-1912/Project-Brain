@@ -860,6 +860,220 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /organizations/{orgId}/projects/{projectId}/architecture/generate:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [Architecture]
+      operationId: generateArchitecture
+      summary: Start a three-step architecture run from the project's approved stories (owner or admin)
+      responses:
+        '202':
+          description: Architecture run accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRunAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503':
+          description: Too many AI runs are waiting
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /organizations/{orgId}/projects/{projectId}/architecture:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Architecture]
+      operationId: getArchitectureState
+      summary: Get the current approved version, the draft, and the latest architecture run
+      responses:
+        '200':
+          description: Architecture state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchitectureState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/projects/{projectId}/architecture/versions:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Architecture]
+      operationId: listArchitectureVersions
+      summary: List architecture versions, newest first
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Architecture versions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchitectureVersionSummaryPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/architecture-versions/{versionId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Architecture]
+      operationId: getArchitectureVersion
+      summary: Get one architecture version with its sections and what the caller can do
+      responses:
+        '200':
+          description: Architecture version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchitectureVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/architecture-versions/{versionId}/{section}:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: section
+        in: path
+        required: true
+        schema: { type: string, enum: [overview, data-model, api-design] }
+    patch:
+      tags: [Architecture]
+      operationId: updateArchitectureSection
+      summary: Replace one section of a draft (owner, admin, or Architect)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ArchitectureSectionUpdate' }
+      responses:
+        '200':
+          description: Updated version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchitectureVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/architecture-versions/{versionId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Architecture]
+      operationId: approveArchitectureVersion
+      summary: Approve a draft (eligible Architect, or the Owner fallback)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryApproval' }
+      responses:
+        '200':
+          description: Approved version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchitectureVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /organizations/{orgId}/architecture-versions/{versionId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Architecture]
+      operationId: rejectArchitectureVersion
+      summary: Reject a draft with a comment (eligible Architect, or the Owner fallback)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoryRejection' }
+      responses:
+        '200':
+          description: Rejected version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchitectureVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/architecture-versions/{versionId}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Architecture]
+      operationId: listArchitectureReviews
+      summary: List a version's review history, oldest first
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Review history
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchitectureReviewPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/architecture-versions/{versionId}/markdown:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Architecture]
+      operationId: downloadArchitectureMarkdown
+      summary: Download a version as Markdown
+      responses:
+        '200':
+          description: Markdown file
+          content:
+            text/markdown:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /organizations/{orgId}/ai-runs/{runId}:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -1513,11 +1727,14 @@ components:
         runId: { type: string, format: uuid }
     AiRun:
       type: object
-      required: [id, documentId, runType, status, provider, model, promptVersion, inputTokens, outputTokens, billingTier, costUsd, errorCode, createdAt, startedAt, finishedAt]
+      required: [id, documentId, runType, status, provider, model, promptVersion, inputTokens, outputTokens, billingTier, costUsd, errorCode, currentStep, createdAt, startedAt, finishedAt]
       properties:
         id: { type: string, format: uuid }
-        documentId: { type: string, format: uuid }
-        runType: { type: string, enum: [ANALYSIS, STORIES] }
+        documentId:
+          type: [string, 'null']
+          format: uuid
+          description: Null for architecture runs, which belong to a project.
+        runType: { type: string, enum: [ANALYSIS, STORIES, ARCHITECTURE] }
         status: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED] }
         provider: { type: [string, 'null'] }
         model: { type: [string, 'null'] }
@@ -1527,6 +1744,9 @@ components:
         billingTier: { type: string, enum: [FREE, PAID] }
         costUsd: { type: number }
         errorCode: { type: [string, 'null'] }
+        currentStep:
+          type: [string, 'null']
+          enum: [OVERVIEW, DATA_MODEL, API_DESIGN, null]
         createdAt: { type: string, format: date-time }
         startedAt: { type: [string, 'null'], format: date-time }
         finishedAt: { type: [string, 'null'], format: date-time }
@@ -1637,6 +1857,110 @@ components:
         items:
           type: array
           items: { $ref: '#/components/schemas/StoryReview' }
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
+    ArchitectureVersionSummary:
+      type: object
+      required: [id, versionNumber, status, createdAt, generatedBy]
+      properties:
+        id: { type: string, format: uuid }
+        versionNumber: { type: integer }
+        status: { type: string, enum: [DRAFT, APPROVED, REJECTED, SUPERSEDED] }
+        createdAt: { type: string, format: date-time }
+        generatedBy: { type: [string, 'null'], format: uuid }
+    ArchitectureVersionSummaryPage:
+      type: object
+      required: [items, page, size, totalItems]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ArchitectureVersionSummary' }
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
+    ArchitectureState:
+      type: object
+      required: [current, draft, latestRun]
+      properties:
+        current:
+          anyOf:
+            - $ref: '#/components/schemas/ArchitectureVersionSummary'
+            - type: 'null'
+        draft:
+          anyOf:
+            - $ref: '#/components/schemas/ArchitectureVersionSummary'
+            - type: 'null'
+        latestRun:
+          anyOf:
+            - $ref: '#/components/schemas/AiRun'
+            - type: 'null'
+    ArchitectureStoryLink:
+      type: object
+      required: [id, title, status]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        status: { type: string, enum: [DRAFT, APPROVED, REJECTED, CONVERTED] }
+    ArchitectureVersion:
+      type: object
+      required: [id, projectId, versionNumber, status, basedOnVersionId, approverJobRoleId, overview, dataModel, apiDesign, storyIds, stories, generatedBy, createdAt, updatedAt, version, canEdit, canReview]
+      properties:
+        id: { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        versionNumber: { type: integer }
+        status: { type: string, enum: [DRAFT, APPROVED, REJECTED, SUPERSEDED] }
+        basedOnVersionId: { type: [string, 'null'], format: uuid }
+        approverJobRoleId: { type: [string, 'null'], format: uuid }
+        overview:
+          type: object
+          additionalProperties: true
+          description: Summary, components, techStack, decisions, and risks.
+        dataModel:
+          type: object
+          additionalProperties: true
+          description: Tables with columns, relations, and storyIds.
+        apiDesign:
+          type: object
+          additionalProperties: true
+          description: Endpoints with fields, roles, and storyIds.
+        storyIds:
+          type: array
+          items: { type: string, format: uuid }
+        stories:
+          type: array
+          items: { $ref: '#/components/schemas/ArchitectureStoryLink' }
+        generatedBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+        canEdit: { type: boolean }
+        canReview: { type: boolean }
+    ArchitectureSectionUpdate:
+      type: object
+      required: [content, version]
+      properties:
+        content: { type: object, additionalProperties: true }
+        version: { type: integer, format: int64 }
+    ArchitectureReview:
+      type: object
+      required: [id, contentVersion, action, actorId, approvalBasis, selfApproved, comment, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        contentVersion: { type: integer, format: int64 }
+        action: { type: string, enum: [APPROVED, REJECTED] }
+        actorId: { type: string, format: uuid }
+        approvalBasis: { type: string, enum: [ROLE_HOLDER, OWNER_FALLBACK] }
+        selfApproved: { type: boolean }
+        comment: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    ArchitectureReviewPage:
+      type: object
+      required: [items, page, size, totalItems]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ArchitectureReview' }
         page: { type: integer }
         size: { type: integer }
         totalItems: { type: integer, format: int64 }
