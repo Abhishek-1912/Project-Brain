@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -159,6 +159,34 @@ describe('architecture review screens', () => {
     expect(sent?.content.tables[0].description).toBe('Table reservations')
     expect(await screen.findByText('Table reservations')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Save data model' })).not.toBeInTheDocument()
+  })
+
+  it('saves with the version the editor started from even if the page refreshes', async () => {
+    const user = userEvent.setup()
+    let gets = 0
+    let sent: { version: number } | undefined
+    serve({
+      [`GET ${VERSION_API}`]: () => {
+        gets += 1
+        return json(200, version({ version: gets === 1 ? 3 : 5 }))
+      },
+      [`PATCH ${VERSION_API}/overview`]: async (request) => {
+        sent = (await request.json()) as typeof sent
+        return json(409, { title: 'Conflict', status: 409, detail: 'This version was changed by someone else.' })
+      },
+    })
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Edit overview' }))
+    await user.type(screen.getByLabelText('Summary'), ' More')
+    focusManager.setFocused(false)
+    focusManager.setFocused(true)
+    await waitFor(() => expect(gets).toBeGreaterThan(1))
+    await user.click(screen.getByRole('button', { name: 'Save overview' }))
+
+    await waitFor(() => expect(sent?.version).toBe(3))
+    expect(await screen.findByText(/changed by someone else/)).toBeInTheDocument()
+    focusManager.setFocused(undefined)
   })
 
   it('adds and removes columns and endpoints', async () => {

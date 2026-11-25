@@ -137,3 +137,23 @@ def test_unknown_provider_setting_is_a_safe_provider_error(monkeypatch):
         get_provider()
 
     assert caught.value.code == "PROVIDER_ERROR"
+
+
+def test_request_too_large_for_provider_is_text_too_long():
+    instance, _requests = provider(lambda request: httpx.Response(413, json={"error": {"message": "private text"}}))
+
+    with pytest.raises(ProviderError) as caught:
+        run(instance)
+
+    assert caught.value.code == "TEXT_TOO_LONG"
+    assert caught.value.status == 422
+
+
+def test_output_cap_defaults_to_8192_and_can_be_configured(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "groq")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.delenv("GROQ_MAX_OUTPUT_TOKENS", raising=False)
+    assert get_provider().max_output_tokens == 8192
+
+    monkeypatch.setenv("GROQ_MAX_OUTPUT_TOKENS", "12000")
+    assert get_provider().max_output_tokens == 12000

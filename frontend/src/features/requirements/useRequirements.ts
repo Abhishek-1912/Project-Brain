@@ -22,9 +22,10 @@ const POLL_MS = 1000
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 const RUN_ERRORS: Record<string, string> = {
-  RATE_LIMITED: 'The Gemini free-tier limit was reached. Wait a minute, then try again.',
-  PROVIDER_TIMEOUT: 'Gemini took too long to respond. Try again.',
-  PROVIDER_ERROR: 'Gemini returned an error. Try again shortly.',
+  RATE_LIMITED: 'The AI provider’s free-tier limit was reached. Wait a minute, then try again.',
+  PROVIDER_TIMEOUT: 'The AI provider took too long to respond. Try again.',
+  PROVIDER_ERROR: 'The AI provider returned an error. Try again shortly.',
+  TEXT_TOO_LONG: 'The request was too large for the AI provider. Shorten the approved stories, then try again.',
   INVALID_OUTPUT: 'The AI returned a result that couldn’t be used, so nothing was saved. Try again.',
   SERVICE_UNAVAILABLE: 'The AI service is unavailable. Try again shortly.',
   SERVICE_BUSY: 'Too many AI runs are waiting. Try again shortly.',

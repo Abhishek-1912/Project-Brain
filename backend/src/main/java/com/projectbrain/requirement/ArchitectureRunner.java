@@ -12,6 +12,7 @@ import com.projectbrain.project.api.ProjectStatus;
 import com.projectbrain.requirement.AiServiceClient.ArchitectureStepRequest;
 import com.projectbrain.requirement.AiServiceClient.GeneratedResult;
 import com.projectbrain.shared.web.ConflictException;
+import com.projectbrain.shared.web.UnprocessableException;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -57,7 +58,15 @@ class ArchitectureRunner {
 			if (!runs.markRunning(job.orgId(), job.runId())) {
 				throw new IllegalStateException("Run is no longer queued");
 			}
-			ArchitectureInput input = inputs.load(job.orgId(), job.projectId());
+			ArchitectureInput input;
+			try {
+				input = inputs.load(job.orgId(), job.projectId());
+			}
+			catch (ConflictException | UnprocessableException ex) {
+				// Stories were unapproved or grew after the run started. The project is not archived here,
+				// because write() already checked that.
+				throw new AiServiceException("INPUTS_CHANGED");
+			}
 			if (!input.fingerprint().equals(runs.fingerprint(job.orgId(), job.runId()))) {
 				// The stories or starting point changed between starting the run and running it.
 				throw new AiServiceException("INPUTS_CHANGED");

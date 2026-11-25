@@ -6,8 +6,8 @@ export const quietButton =
 export function TestModeBanner() {
   return (
     <aside className="mb-5 rounded-md border border-warning/40 bg-warning-tint px-4 py-3 text-sm leading-6 text-text-primary">
-      <strong className="font-semibold">Use dummy data only.</strong> Documents are sent to the Gemini
-      free tier, where people may review content and Google may use it to improve its products.
+      <strong className="font-semibold">Use dummy data only.</strong> Documents are sent to a free AI
+      provider tier, where the provider may keep or review content and use it to improve its products.
     </aside>
   )
 }

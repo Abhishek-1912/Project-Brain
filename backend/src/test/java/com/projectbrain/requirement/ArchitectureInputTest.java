@@ -110,6 +110,45 @@ class ArchitectureInputTest extends TeamApiTestBase {
 	}
 
 	@Test
+	void stepOneLeavesRoomForLaterSteps() throws Exception {
+		Fixture f = fixture();
+		String criteria = "[" + String.join(",", java.util.Collections.nCopies(20, "\"" + "x".repeat(1000) + "\"")) + "]";
+		for (int i = 0; i < 7; i++) {
+			UUID id = story(f, "Large " + i, "APPROVED");
+			execute("UPDATE brain.story_drafts SET acceptance_criteria = CAST(? AS jsonb) WHERE id = ?", criteria, id);
+		}
+
+		// About 140,000 characters fits Python's 200,000 for step 1 but leaves no room for steps 2 and 3.
+		assertThatThrownBy(() -> load(f)).isInstanceOf(UnprocessableException.class);
+	}
+
+	@Test
+	void largeStartingPointIsCompactedInsteadOfBlockingGeneration() throws Exception {
+		Fixture f = fixture();
+		story(f, "Approved", "APPROVED");
+		StringBuilder tables = new StringBuilder("{\"tables\":[");
+		for (int i = 0; i < 60; i++) {
+			tables.append(i == 0 ? "" : ",").append("{\"name\":\"table_").append(i)
+				.append("\",\"description\":\"").append("d".repeat(1000)).append("\",\"columns\":[");
+			for (int c = 0; c < 20; c++) {
+				tables.append(c == 0 ? "" : ",").append("{\"name\":\"col_").append(c)
+					.append("\",\"type\":\"text\",\"nullable\":true,\"description\":\"").append("c".repeat(200))
+					.append("\"}");
+			}
+			tables.append("],\"relations\":[],\"storyIds\":[]}");
+		}
+		tables.append("]}");
+		version(f, 1, "REJECTED", tables.toString());
+
+		ArchitectureInput input = load(f);
+
+		assertThat(input.startingPoint().get("status").asString()).isEqualTo("REJECTED");
+		assertThat(input.startingPoint().get("compacted").asBoolean()).isTrue();
+		assertThat(input.startingPoint().get("dataModel").get("tables").get(0).get("name").asString()).isEqualTo("table_0");
+		assertThat(input.startingPoint().get("dataModel").get("tables").get(0).has("columns")).isFalse();
+	}
+
+	@Test
 	void fingerprintChangesWithStoriesStartingPointOrPromptVersions() throws Exception {
 		Fixture f = fixture();
 		UUID story = story(f, "Approved", "APPROVED");

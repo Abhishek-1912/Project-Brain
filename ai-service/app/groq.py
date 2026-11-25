@@ -9,8 +9,8 @@ from .provider import ProviderError, ProviderResult
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 BASE_URL = "https://api.groq.com/openai/v1"
 TIMEOUT_SECONDS = 60.0
-# Groq's free tier allows about 8,000 tokens per minute for this model, so requests stay modest.
-DEFAULT_MAX_OUTPUT_TOKENS = 4096
+# gpt-oss counts its reasoning in this cap. Larger designs need room, so GROQ_MAX_OUTPUT_TOKENS can raise it.
+DEFAULT_MAX_OUTPUT_TOKENS = 8192
 
 
 class GroqProvider:
@@ -71,6 +71,9 @@ class GroqProvider:
 def _error_code(response: httpx.Response) -> str:
     if response.status_code == 429:
         return "RATE_LIMITED"
+    if response.status_code == 413:
+        # Groq refuses a single request larger than the account's token limits; retrying cannot help.
+        return "TEXT_TOO_LONG"
     if response.status_code in (408, 504):
         return "PROVIDER_TIMEOUT"
     try:
@@ -92,4 +95,8 @@ def get_groq_provider() -> GroqProvider:
         headers={"Authorization": f"Bearer {key}"},
         timeout=TIMEOUT_SECONDS,
     )
-    return GroqProvider(client, os.environ.get("GROQ_MODEL") or DEFAULT_MODEL)
+    try:
+        max_output_tokens = int(os.environ.get("GROQ_MAX_OUTPUT_TOKENS") or DEFAULT_MAX_OUTPUT_TOKENS)
+    except ValueError:
+        raise ProviderError("PROVIDER_ERROR") from None
+    return GroqProvider(client, os.environ.get("GROQ_MODEL") or DEFAULT_MODEL, max_output_tokens)

@@ -31,6 +31,12 @@ class ArchitectureInputService {
 
 	static final int MAX_REQUEST_CHARACTERS = 200_000;
 
+	/**
+	 * Steps 2 and 3 add the overview and data model to the same request, so step 1 must leave room for them inside
+	 * the AI service's 200,000-character limit.
+	 */
+	static final int MAX_STEP_ONE_CHARACTERS = 120_000;
+
 	private final JdbcClient jdbc;
 
 	private final JsonMapper json;
@@ -81,7 +87,7 @@ class ArchitectureInputService {
 		List<String> comments = start.filter(version -> "REJECTED".equals(version.status()))
 			.map(version -> rejectionComments(orgId, version.id()))
 			.orElse(List.of());
-		ObjectNode startingPoint = start.map(version -> {
+		ObjectNode startingPoint0 = start.map(version -> {
 			ObjectNode point = json.createObjectNode();
 			point.put("status", version.status());
 			point.set("overview", validator.toStepForm(version.overview(), keysById));
@@ -91,12 +97,19 @@ class ArchitectureInputService {
 			comments.forEach(list::add);
 			return point;
 		}).orElse(null);
+		ObjectNode startingPoint = startingPoint0;
 
-		String body = json.writeValueAsString(
-				ArchitectureRequestBody.of(json, new ArchitectureStepRequest(stories, startingPoint, null, null)));
-		if (body.length() > MAX_REQUEST_CHARACTERS) {
+		if (size(stories, null) > MAX_STEP_ONE_CHARACTERS) {
 			throw new UnprocessableException(
 					"The approved stories are too long to generate an architecture in one run. Shorten or split them.");
+		}
+		if (startingPoint != null && size(stories, startingPoint) > MAX_STEP_ONE_CHARACTERS) {
+			// A large earlier version must not block every future run, so the AI gets its outline instead.
+			startingPoint = compact(startingPoint);
+			if (size(stories, startingPoint) > MAX_STEP_ONE_CHARACTERS) {
+				throw new UnprocessableException(
+						"The approved stories and the previous architecture version are too large to combine in one run.");
+			}
 		}
 		String fingerprint = fingerprint(rows.stream().map(row -> new StoryVersion(row.id(), row.version())).toList(),
 				start.map(StartingVersion::id).orElse(null), start.map(StartingVersion::version).orElse(0L), comments,
@@ -125,6 +138,39 @@ class ArchitectureInputService {
 		catch (NoSuchAlgorithmException ex) {
 			throw new IllegalStateException("SHA-256 is unavailable", ex);
 		}
+	}
+
+	private int size(List<ArchitectureStoryInput> stories, JsonNode startingPoint) {
+		return json.writeValueAsString(
+				ArchitectureRequestBody.of(json, new ArchitectureStepRequest(stories, startingPoint, null, null)))
+			.length();
+	}
+
+	/** Keeps the summary, decisions, names, paths, and comments, and drops descriptions, columns, and fields. */
+	private ObjectNode compact(ObjectNode full) {
+		ObjectNode point = json.createObjectNode();
+		point.put("status", full.get("status").asString());
+		point.put("compacted", true);
+		ObjectNode overview = point.putObject("overview");
+		overview.put("summary", full.path("overview").path("summary").asString(""));
+		ArrayNode decisions = overview.putArray("decisions");
+		full.path("overview").path("decisions").forEach(decision -> decisions.addObject()
+			.put("title", decision.path("title").asString(""))
+			.put("decision", decision.path("decision").asString("")));
+		ArrayNode tables = point.putObject("dataModel").putArray("tables");
+		full.path("dataModel").path("tables").forEach(table -> {
+			ObjectNode item = tables.addObject().put("name", table.path("name").asString(""));
+			item.set("storyRefs", table.path("storyRefs"));
+		});
+		ArrayNode endpoints = point.putObject("apiDesign").putArray("endpoints");
+		full.path("apiDesign").path("endpoints").forEach(endpoint -> {
+			ObjectNode item = endpoints.addObject()
+				.put("method", endpoint.path("method").asString(""))
+				.put("path", endpoint.path("path").asString(""));
+			item.set("storyRefs", endpoint.path("storyRefs"));
+		});
+		point.set("rejectionComments", full.path("rejectionComments"));
+		return point;
 	}
 
 	private Optional<StartingVersion> startingVersion(UUID orgId, UUID projectId) {

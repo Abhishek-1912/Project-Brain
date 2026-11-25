@@ -187,6 +187,8 @@ class ArchitectureStoryInput(ApiModel):
 
 class ArchitectureStartingPoint(ApiModel):
     status: Literal["APPROVED", "REJECTED"]
+    # True when Spring sent only an outline because the full version would not fit.
+    compacted: bool = False
     # Stored versions carry story IDs rather than step references, so this context is not schema-checked.
     overview: dict[str, Any]
     data_model: dict[str, Any]

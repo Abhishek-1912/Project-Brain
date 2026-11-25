@@ -32,6 +32,8 @@ interface Editing {
   section: SectionKey
   original: SectionValue
   draft: SectionValue
+  // The version the editor saw. A refetch during editing must not let a save skip the conflict check.
+  baseVersion: number
 }
 
 function VersionPage({ projectId, versionId }: { projectId: string; versionId: string }) {
@@ -47,7 +49,7 @@ function VersionPage({ projectId, versionId }: { projectId: string; versionId: s
     const value = sectionsOf(data)[section] as SectionValue
     // A deep copy, so editing never changes the cached server copy.
     const copy = JSON.parse(JSON.stringify(value)) as SectionValue
-    setEditing({ section, original: copy, draft: copy })
+    setEditing({ section, original: copy, draft: copy, baseVersion: data.version })
     setError(null)
     setConflict(false)
   }
@@ -60,7 +62,7 @@ function VersionPage({ projectId, versionId }: { projectId: string; versionId: s
         versionId: data.id,
         section: editing.section,
         content: normalizeSection(editing.section, editing.draft),
-        version: data.version,
+        version: editing.baseVersion,
       },
       {
         onSuccess: () => {
