@@ -5,11 +5,12 @@ import java.util.UUID;
 
 import com.projectbrain.knowledge.api.KnowledgeQueries;
 import com.projectbrain.knowledge.api.NoteReader;
+import com.projectbrain.knowledge.api.NoteWriter;
 import com.projectbrain.shared.web.PageParams;
 import org.springframework.stereotype.Component;
 
 @Component
-class KnowledgeApiAdapter implements KnowledgeQueries, NoteReader {
+class KnowledgeApiAdapter implements KnowledgeQueries, NoteReader, NoteWriter {
 
 	private final KnowledgeAskService asking;
 
@@ -38,6 +39,11 @@ class KnowledgeApiAdapter implements KnowledgeQueries, NoteReader {
 					.stream()
 					.map(c -> new Citation(c.number(), c.sourceId(), c.sourceType(), c.title(), c.excerpt()))
 					.toList());
+	}
+
+	@Override
+	public UUID create(UUID orgId, UUID projectId, String title, String body) {
+		return notes.create(orgId, projectId, new KnowledgeNoteService.NoteRequest(title, body)).id();
 	}
 
 	@Override

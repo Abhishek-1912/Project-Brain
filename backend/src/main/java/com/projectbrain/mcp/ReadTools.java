@@ -93,12 +93,19 @@ class ReadTools {
 	}
 
 	@Bean
+	SyncToolSpecification listJobRolesTool(TaskReader tasks) {
+		return tool("list_job_roles", "List the organization's active job roles. create_task needs one of these names.",
+				"{\"type\":\"object\",\"properties\":{}}",
+				(token, args) -> Map.of("jobRoles", tasks.activeJobRoles(token.orgId())));
+	}
+
+	@Bean
 	SyncToolSpecification listNotesTool(NoteReader notes) {
 		return tool("list_notes", "List a project's knowledge notes, newest first.", PROJECT_ONLY,
 				(token, args) -> Map.of("notes", notes.list(token.orgId(), McpCalls.projectId(args))));
 	}
 
-	private SyncToolSpecification tool(String name, String description, String inputSchema,
+	SyncToolSpecification tool(String name, String description, String inputSchema,
 			BiFunction<ResolvedToken, Map<String, Object>, Object> work) {
 		return SyncToolSpecification.builder()
 			.tool(McpSchema.Tool.builder()

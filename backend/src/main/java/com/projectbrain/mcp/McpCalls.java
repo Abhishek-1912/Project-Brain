@@ -28,21 +28,28 @@ class McpCalls {
 	}
 
 	CallToolResult run(McpTransportContext context, Function<ResolvedToken, Object> work) {
+		try {
+			Object result = asUser(context, work);
+			String text = result instanceof String plain ? plain : json.writeValueAsString(result);
+			return CallToolResult.builder().addTextContent(text).isError(false).build();
+		}
+		catch (RuntimeException ex) {
+			return error(ToolErrors.message(ex));
+		}
+	}
+
+	/** Runs work signed in as the token's user, and lets errors through. */
+	<T> T asUser(McpTransportContext context, Function<ResolvedToken, T> work) {
 		Object value = context.get(McpServerConfig.TOKEN_KEY);
 		if (!(value instanceof ResolvedToken token)) {
-			return error("Sign in with a personal access token.");
+			throw new ToolInputException("Sign in with a personal access token.");
 		}
 		SecurityContext previous = contexts.getContext();
 		SecurityContext signedIn = contexts.createEmptyContext();
 		signedIn.setAuthentication(new AccessTokenAuthentication(token));
 		contexts.setContext(signedIn);
 		try {
-			Object result = work.apply(token);
-			String text = result instanceof String plain ? plain : json.writeValueAsString(result);
-			return CallToolResult.builder().addTextContent(text).isError(false).build();
-		}
-		catch (RuntimeException ex) {
-			return error(ToolErrors.message(ex));
+			return work.apply(token);
 		}
 		finally {
 			contexts.setContext(previous);

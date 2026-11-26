@@ -3,9 +3,12 @@ package com.projectbrain.task;
 import java.util.List;
 import java.util.UUID;
 
+import com.projectbrain.organization.api.OrgTx;
+import com.projectbrain.organization.api.Permission;
 import com.projectbrain.shared.web.PageParams;
 import com.projectbrain.shared.web.UnprocessableException;
 import com.projectbrain.task.api.TaskReader;
+import com.projectbrain.team.api.JobRoleLookup;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -13,8 +16,19 @@ class TaskReaderAdapter implements TaskReader {
 
 	private final TaskService tasks;
 
-	TaskReaderAdapter(TaskService tasks) {
+	private final OrgTx orgTx;
+
+	private final JobRoleLookup jobRoles;
+
+	TaskReaderAdapter(TaskService tasks, OrgTx orgTx, JobRoleLookup jobRoles) {
 		this.tasks = tasks;
+		this.orgTx = orgTx;
+		this.jobRoles = jobRoles;
+	}
+
+	@Override
+	public List<String> activeJobRoles(UUID orgId) {
+		return orgTx.inOrg(orgId, Permission.VIEW, () -> jobRoles.activeNames(orgId));
 	}
 
 	@Override
