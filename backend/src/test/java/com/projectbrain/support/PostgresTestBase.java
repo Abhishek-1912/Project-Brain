@@ -26,7 +26,9 @@ public abstract class PostgresTestBase {
 		.withCopyFileToContainer(RoleBootstrapScript.mountable(Path.of("db/bootstrap/create_roles.sql")),
 				"/tmp/create_roles.sql")
 		.withCopyFileToContainer(RoleBootstrapScript.mountable(Path.of("db/bootstrap/enable_vector.sql")),
-				"/tmp/enable_vector.sql");
+				"/tmp/enable_vector.sql")
+		// Each cached Spring test context keeps its own pool, so the shared database needs headroom.
+		.withCommand("postgres", "-c", "max_connections=300");
 
 	static {
 		POSTGRES.start();
@@ -70,6 +72,9 @@ public abstract class PostgresTestBase {
 		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.datasource.username", () -> APP_USER);
 		registry.add("spring.datasource.password", () -> APP_PASSWORD);
+		// Idle pools in cached contexts would otherwise hold ten connections each.
+		registry.add("spring.datasource.hikari.minimum-idle", () -> 1);
+		registry.add("spring.datasource.hikari.maximum-pool-size", () -> 6);
 		registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.flyway.user", () -> MIGRATOR_USER);
 		registry.add("spring.flyway.password", () -> MIGRATOR_PASSWORD);

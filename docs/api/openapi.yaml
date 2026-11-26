@@ -1334,6 +1334,71 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /organizations/{orgId}/projects/{projectId}/knowledge/search:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Knowledge]
+      operationId: searchKnowledge
+      summary: Search the project's knowledge by meaning and keyword
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 500 }
+        - name: limit
+          in: query
+          required: false
+          description: Defaults to 10. Values above 20 are capped at 20.
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Matching passages, best first
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeSearchResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503':
+          description: AI service is unavailable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /organizations/{orgId}/projects/{projectId}/knowledge/ask:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [Knowledge]
+      operationId: askKnowledge
+      summary: Answer a question only from the project's knowledge, with citations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: The answer, or not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeAnswer' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503':
+          description: Busy, or the AI service is unavailable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -2160,6 +2225,44 @@ components:
             items:
               type: array
               items: { $ref: '#/components/schemas/KnowledgeSource' }
+    KnowledgeSearchItem:
+      type: object
+      required: [chunkId, sourceId, sourceType, title, content, score]
+      properties:
+        chunkId: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        sourceType: { type: string, enum: [DOCUMENT, CLARIFICATION, STORY, ARCHITECTURE, NOTE] }
+        title: { type: string }
+        content: { type: string }
+        score: { type: number }
+    KnowledgeSearchResult:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeSearchItem' }
+    KnowledgeCitation:
+      type: object
+      required: [number, chunkId, sourceId, sourceType, title, excerpt]
+      properties:
+        number: { type: integer }
+        chunkId: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        sourceType: { type: string, enum: [DOCUMENT, CLARIFICATION, STORY, ARCHITECTURE, NOTE] }
+        title: { type: string }
+        excerpt: { type: string }
+    KnowledgeAnswer:
+      type: object
+      required: [id, question, answer, found, citations]
+      properties:
+        id: { type: string, format: uuid }
+        question: { type: string }
+        answer: { type: string }
+        found: { type: boolean }
+        citations:
+          type: array
+          items: { $ref: '#/components/schemas/KnowledgeCitation' }
     KnowledgeRebuildResult:
       type: object
       required: [queued]
