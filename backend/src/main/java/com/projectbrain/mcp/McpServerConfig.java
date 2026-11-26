@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.projectbrain.identity.api.AccessTokenAuthentication;
 import io.modelcontextprotocol.common.McpTransportContext;
+import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncResourceSpecification;
@@ -29,9 +30,14 @@ class McpServerConfig {
 	static final String TOKEN_KEY = "projectbrain.accessToken";
 
 	@Bean
-	HttpServletStatelessServerTransport mcpTransport(JsonMapper json) {
+	McpJsonMapper mcpJsonMapper(JsonMapper json) {
+		return new JacksonMcpJsonMapper(json);
+	}
+
+	@Bean
+	HttpServletStatelessServerTransport mcpTransport(McpJsonMapper mcpJson) {
 		return HttpServletStatelessServerTransport.builder()
-			.jsonMapper(new JacksonMcpJsonMapper(json))
+			.jsonMapper(mcpJson)
 			.messageEndpoint(ENDPOINT)
 			// The SDK may run handlers on its own threads, so the signed-in token travels in the call context.
 			.contextExtractor(request -> {
