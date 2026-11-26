@@ -1,7 +1,7 @@
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 from pydantic.alias_generators import to_camel
 
 from .config import MAX_TEXT_CHARACTERS
@@ -62,6 +62,29 @@ class StoriesRequest(ApiModel):
     active_job_roles: list[str] = Field(default_factory=list, max_length=100)
     rejection_comments: list[str] = Field(default_factory=list, max_length=100)
     kept_story_titles: list[str] = Field(default_factory=list, max_length=200)
+
+
+EmbedText = Annotated[str, StringConstraints(min_length=1, max_length=2000)]
+
+
+class EmbedRequest(ApiModel):
+    texts: list[EmbedText] = Field(min_length=1, max_length=64)
+
+
+class KnowledgePassage(ApiModel):
+    id: int = Field(ge=1, le=8)
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class AnswerRequest(ApiModel):
+    question: str = Field(min_length=1, max_length=500)
+    passages: list[KnowledgePassage] = Field(min_length=1, max_length=8)
+
+
+class KnowledgeAnswer(ApiModel):
+    answer: str = Field(min_length=1, max_length=4000)
+    citations: list[int] = Field(default_factory=list, max_length=8)
+    found: bool
 
 
 class Usage(ApiModel):

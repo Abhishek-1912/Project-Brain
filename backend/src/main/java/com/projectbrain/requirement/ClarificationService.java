@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
+import com.projectbrain.requirement.api.KnowledgeChanged;
+import com.projectbrain.requirement.api.KnowledgeSourceType;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
@@ -12,6 +14,7 @@ import com.projectbrain.requirement.AnalysisService.QuestionView;
 import com.projectbrain.shared.web.ConflictException;
 import com.projectbrain.shared.web.NotFoundException;
 import com.projectbrain.shared.web.UnprocessableException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -30,13 +33,17 @@ class ClarificationService {
 
 	private final AuditLog auditLog;
 
+	private final ApplicationEventPublisher events;
+
 	ClarificationService(OrgTx orgTx, JdbcClient jdbc, RequirementAccess access, CurrentUserProvider currentUser,
-			AuditLog auditLog) {
+			AuditLog auditLog,
+			ApplicationEventPublisher events) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.access = access;
 		this.currentUser = currentUser;
 		this.auditLog = auditLog;
+		this.events = events;
 	}
 
 	QuestionView update(UUID orgId, UUID questionId, ClarificationUpdate update) {
@@ -66,6 +73,8 @@ class ClarificationService {
 				.update();
 			auditLog.record(orgId, "CLARIFICATION_UPDATED", "CLARIFICATION_QUESTION", questionId,
 					Map.of("status", update.status(), "documentId", target.documentId().toString()));
+			events.publishEvent(new KnowledgeChanged(orgId, target.projectId(), KnowledgeSourceType.CLARIFICATION,
+					questionId, actor));
 			return load(orgId, questionId);
 		});
 	}

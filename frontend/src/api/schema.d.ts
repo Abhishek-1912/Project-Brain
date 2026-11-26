@@ -998,6 +998,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{orgId}/projects/{projectId}/knowledge/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** List the project's indexed knowledge sources, most recently changed first */
+        get: operations["listKnowledgeSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/knowledge/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue every qualifying source for indexing and remove sources that no longer qualify (owner, admin, or manager) */
+        post: operations["rebuildKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** Search the project's knowledge by meaning and keyword */
+        get: operations["searchKnowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/knowledge/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a question only from the project's knowledge, with citations */
+        post: operations["askKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/projects/{projectId}/knowledge/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** List the project's notes, most recently changed first */
+        get: operations["listKnowledgeNotes"];
+        put?: never;
+        /** Write a note (owner, admin, or manager) */
+        post: operations["createKnowledgeNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{orgId}/knowledge/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        /** Get a note */
+        get: operations["getKnowledgeNote"];
+        put?: never;
+        post?: never;
+        /** Delete a note and remove it from search (owner, admin, or manager) */
+        delete: operations["deleteKnowledgeNote"];
+        options?: never;
+        head?: never;
+        /** Edit a note (owner, admin, or manager) */
+        patch: operations["updateKnowledgeNote"];
+        trace?: never;
+    };
     "/organizations/{orgId}/audit-events": {
         parameters: {
             query?: never;
@@ -1621,6 +1755,93 @@ export interface components {
         };
         ReviewQueuePage: components["schemas"]["PageMeta"] & {
             items: components["schemas"]["ReviewQueueItem"][];
+        };
+        KnowledgeSource: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            sourceType: "DOCUMENT" | "CLARIFICATION" | "STORY" | "ARCHITECTURE" | "NOTE";
+            /** Format: uuid */
+            sourceId: string;
+            title: string;
+            /** @enum {string} */
+            status: "PENDING" | "INDEXING" | "READY" | "FAILED";
+            errorCode: string | null;
+            chunkCount: number;
+            /** Format: date-time */
+            indexedAt: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        KnowledgeSourcePage: components["schemas"]["PageMeta"] & {
+            items: components["schemas"]["KnowledgeSource"][];
+        };
+        KnowledgeSearchItem: {
+            /** Format: uuid */
+            chunkId: string;
+            /** Format: uuid */
+            sourceId: string;
+            /** @enum {string} */
+            sourceType: "DOCUMENT" | "CLARIFICATION" | "STORY" | "ARCHITECTURE" | "NOTE";
+            title: string;
+            content: string;
+            score: number;
+        };
+        KnowledgeSearchResult: {
+            items: components["schemas"]["KnowledgeSearchItem"][];
+        };
+        KnowledgeCitation: {
+            number: number;
+            /** Format: uuid */
+            chunkId: string;
+            /** Format: uuid */
+            sourceId: string;
+            /** @enum {string} */
+            sourceType: "DOCUMENT" | "CLARIFICATION" | "STORY" | "ARCHITECTURE" | "NOTE";
+            title: string;
+            excerpt: string;
+        };
+        KnowledgeAnswer: {
+            /** Format: uuid */
+            id: string;
+            question: string;
+            answer: string;
+            found: boolean;
+            citations: components["schemas"]["KnowledgeCitation"][];
+        };
+        KnowledgeNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            title: string;
+            body: string;
+            /** Format: uuid */
+            createdBy: string;
+            /** Format: uuid */
+            updatedBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        KnowledgeNotePage: components["schemas"]["PageMeta"] & {
+            items: components["schemas"]["KnowledgeNote"][];
+        };
+        KnowledgeNoteCreate: {
+            title: string;
+            body: string;
+        };
+        KnowledgeNotePatch: {
+            title?: string;
+            body?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        KnowledgeRebuildResult: {
+            queued: number;
         };
         RequirementDocumentPage: components["schemas"]["PageMeta"] & {
             items: components["schemas"]["RequirementDocument"][];
@@ -3568,6 +3789,302 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreateTasksResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    listKnowledgeSources: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Knowledge sources */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSourcePage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    rebuildKnowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sources queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRebuildResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    searchKnowledge: {
+        parameters: {
+            query: {
+                q: string;
+                /** @description Defaults to 10. Values above 20 are capped at 20. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching passages, best first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSearchResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            /** @description AI service is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    askKnowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    question: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The answer, or not found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeAnswer"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            /** @description Busy, or the AI service is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listKnowledgeNotes: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page number */
+                page?: components["parameters"]["Page"];
+                /** @description Page size. Values above 100 are capped at 100. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeNotePage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createKnowledgeNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeNoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Created note */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeNote"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    getKnowledgeNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Note */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeNote"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteKnowledgeNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateKnowledgeNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                orgId: components["parameters"]["OrgId"];
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeNotePatch"];
+            };
+        };
+        responses: {
+            /** @description Updated note */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeNote"];
                 };
             };
             401: components["responses"]["Unauthorized"];

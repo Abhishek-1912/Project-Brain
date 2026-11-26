@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
+import com.projectbrain.requirement.api.KnowledgeChanged;
+import com.projectbrain.requirement.api.KnowledgeSourceType;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
@@ -23,6 +25,7 @@ import com.projectbrain.shared.web.PageResponse;
 import com.projectbrain.shared.web.ServiceUnavailableException;
 import com.projectbrain.shared.web.UnprocessableException;
 import com.projectbrain.team.api.JobRoleLookup;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -71,8 +74,11 @@ class RequirementService {
 
 	private final AuditLog auditLog;
 
+	private final ApplicationEventPublisher events;
+
 	RequirementService(OrgTx orgTx, JdbcClient jdbc, ProjectLookup projects, JobRoleLookup jobRoles, AiServiceClient ai,
-			CurrentUserProvider currentUser, AuditLog auditLog) {
+			CurrentUserProvider currentUser, AuditLog auditLog,
+			ApplicationEventPublisher events) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.projects = projects;
@@ -80,6 +86,7 @@ class RequirementService {
 		this.ai = ai;
 		this.currentUser = currentUser;
 		this.auditLog = auditLog;
+		this.events = events;
 	}
 
 	PageResponse<DocumentView> list(UUID orgId, UUID projectId, PageParams paging) {
@@ -170,6 +177,7 @@ class RequirementService {
 				.update();
 			auditLog.record(orgId, "REQUIREMENT_UPLOADED", "REQUIREMENT_DOCUMENT", id,
 					Map.of("name", name, "sizeBytes", content.length, "dummyDataConfirmed", true));
+			events.publishEvent(new KnowledgeChanged(orgId, projectId, KnowledgeSourceType.DOCUMENT, id, actor));
 			return load(orgId, id);
 		});
 	}

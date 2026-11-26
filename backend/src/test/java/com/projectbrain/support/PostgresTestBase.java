@@ -11,6 +11,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.Container;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /** Shared PostgreSQL with real roles: Flyway runs as brain_migrator, the app as brain_app. */
 public abstract class PostgresTestBase {
@@ -20,9 +21,14 @@ public abstract class PostgresTestBase {
 	private static final String APP_PASSWORD = "test_app_password";
 	private static final String MIGRATOR_PASSWORD = "test_migrator_password";
 
-	private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine")
+	private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+			DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres"))
 		.withCopyFileToContainer(RoleBootstrapScript.mountable(Path.of("db/bootstrap/create_roles.sql")),
-				"/tmp/create_roles.sql");
+				"/tmp/create_roles.sql")
+		.withCopyFileToContainer(RoleBootstrapScript.mountable(Path.of("db/bootstrap/enable_vector.sql")),
+				"/tmp/enable_vector.sql")
+		// Each cached Spring test context keeps its own pool, so the shared database needs headroom.
+		.withCommand("postgres", "-c", "max_connections=300");
 
 	static {
 		POSTGRES.start();
@@ -37,12 +43,17 @@ public abstract class PostgresTestBase {
 	}
 
 	private static void bootstrapRoles() {
+		runBootstrap("create_roles.sql");
+		runBootstrap("enable_vector.sql");
+	}
+
+	private static void runBootstrap(String script) {
 		try {
 			Container.ExecResult result = POSTGRES.execInContainer("psql", "-v", "ON_ERROR_STOP=1",
 					"-U", POSTGRES.getUsername(), "-d", POSTGRES.getDatabaseName(),
 					"-v", "migrator_password=" + MIGRATOR_PASSWORD,
 					"-v", "app_password=" + APP_PASSWORD,
-					"-f", "/tmp/create_roles.sql");
+					"-f", "/tmp/" + script);
 			if (result.getExitCode() != 0) {
 				throw new IllegalStateException("Role bootstrap failed: " + result.getStderr());
 			}
@@ -61,6 +72,9 @@ public abstract class PostgresTestBase {
 		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.datasource.username", () -> APP_USER);
 		registry.add("spring.datasource.password", () -> APP_PASSWORD);
+		// Idle pools in cached contexts would otherwise hold ten connections each.
+		registry.add("spring.datasource.hikari.minimum-idle", () -> 1);
+		registry.add("spring.datasource.hikari.maximum-pool-size", () -> 6);
 		registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.flyway.user", () -> MIGRATOR_USER);
 		registry.add("spring.flyway.password", () -> MIGRATOR_PASSWORD);
@@ -77,6 +91,9 @@ public abstract class PostgresTestBase {
 			statement.execute("CREATE SCHEMA brain AUTHORIZATION " + MIGRATOR_USER);
 			statement.execute("REVOKE ALL ON SCHEMA brain FROM PUBLIC");
 			statement.execute("GRANT USAGE ON SCHEMA brain TO " + APP_USER);
+			statement.execute("CREATE SCHEMA IF NOT EXISTS extensions");
+			statement.execute("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions");
+			statement.execute("GRANT USAGE ON SCHEMA extensions TO " + MIGRATOR_USER + ", " + APP_USER);
 		}
 		return url;
 	}

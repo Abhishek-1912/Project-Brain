@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
+import com.projectbrain.requirement.api.KnowledgeChanged;
+import com.projectbrain.requirement.api.KnowledgeSourceType;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
@@ -18,6 +20,7 @@ import com.projectbrain.shared.web.PageParams;
 import com.projectbrain.shared.web.PageResponse;
 import com.projectbrain.shared.web.UnprocessableException;
 import com.projectbrain.team.api.Approvers;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -37,13 +40,17 @@ class ArchitectureReviewService {
 
 	private final AuditLog auditLog;
 
+	private final ApplicationEventPublisher events;
+
 	ArchitectureReviewService(OrgTx orgTx, JdbcClient jdbc, ArchitectureService architecture,
-			CurrentUserProvider currentUser, AuditLog auditLog) {
+			CurrentUserProvider currentUser, AuditLog auditLog,
+			ApplicationEventPublisher events) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.architecture = architecture;
 		this.currentUser = currentUser;
 		this.auditLog = auditLog;
+		this.events = events;
 	}
 
 	ArchitectureVersion approve(UUID orgId, UUID versionId, Long expected) {
@@ -64,6 +71,9 @@ class ArchitectureReviewService {
 			auditLog.record(orgId, "ARCHITECTURE_APPROVED", "ARCHITECTURE_VERSION", versionId,
 					Map.of("versionNumber", row.versionNumber(), "basis", approvers.basis().name(), "selfApproved",
 							selfApproved));
+			// The architecture source is keyed by project, so the new version replaces the old one in the index.
+			events.publishEvent(new KnowledgeChanged(orgId, row.projectId(), KnowledgeSourceType.ARCHITECTURE,
+					row.projectId(), actor));
 			return architecture.view(orgId, architecture.load(orgId, versionId, false), actor);
 		});
 	}

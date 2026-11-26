@@ -12,6 +12,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
+import com.projectbrain.requirement.api.KnowledgeChanged;
+import com.projectbrain.requirement.api.KnowledgeSourceType;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.organization.api.ApprovalSettings;
 import com.projectbrain.organization.api.OrgTx;
@@ -28,6 +30,7 @@ import com.projectbrain.shared.web.PageResponse;
 import com.projectbrain.shared.web.UnprocessableException;
 import com.projectbrain.team.api.JobRoleLookup;
 import com.projectbrain.team.api.ProjectTeamLookup;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -78,11 +81,13 @@ class StoryService {
 
 	private final ProjectLookup projects;
 
+	private final ApplicationEventPublisher events;
+
 	private final RowMapper<StoryView> mapper;
 
 	StoryService(OrgTx orgTx, JdbcClient jdbc, AnalysisService analyses, RequirementAccess access, JobRoleLookup jobRoles,
 			CurrentUserProvider currentUser, AuditLog auditLog, JsonMapper json, ProjectTeamLookup team,
-			ApprovalSettings approvalSettings, ProjectLookup projects) {
+			ApprovalSettings approvalSettings, ProjectLookup projects, ApplicationEventPublisher events) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.analyses = analyses;
@@ -94,6 +99,7 @@ class StoryService {
 		this.team = team;
 		this.approvalSettings = approvalSettings;
 		this.projects = projects;
+		this.events = events;
 		this.mapper = (row, rowNumber) -> new StoryView(row.getObject("id", UUID.class),
 				row.getObject("document_id", UUID.class), row.getObject("analysis_id", UUID.class),
 				row.getString("title"), row.getString("as_a"), row.getString("i_want"), row.getString("so_that"),
@@ -181,6 +187,9 @@ class StoryService {
 					.param("version", nextVersion)
 					.param("actor", actor)
 					.update();
+				// A reopened story is a draft again, so it must leave the knowledge index.
+				events.publishEvent(
+						new KnowledgeChanged(orgId, target.projectId(), KnowledgeSourceType.STORY, storyId, actor));
 			}
 			auditLog.record(orgId, "STORY_EDITED", "STORY", storyId, Map.of("version", nextVersion, "reopened", reopened));
 			return load(orgId, storyId);

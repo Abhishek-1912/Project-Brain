@@ -18,7 +18,8 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 class ArchitectureTest {
 
 	private static final String ROOT = "com.projectbrain.";
-	private static final Set<String> MODULES = Set.of("identity", "organization", "project", "task", "audit", "team", "requirement");
+	private static final Set<String> MODULES = Set.of("identity", "organization", "project", "task", "audit", "team", "requirement",
+			"knowledge");
 
 	@ArchTest
 	static final ArchRule modulesOnlyUseOtherModulesApi = classes()

@@ -8,14 +8,17 @@ from .config import MAX_FILE_BYTES, MAX_TEXT_CHARACTERS
 from .extract import ExtractionError, extract_text
 from .providers import get_provider
 from .generation import analyze as run_analysis
-from .generation import generate_stories, run_architecture_step
+from .embeddings import DIMENSIONS, MODEL_NAME, Embedder, EmbeddingUnavailable, embed_texts, get_embedder
+from .generation import answer_question, generate_stories, run_architecture_step
 from .provider import AiProvider, ProviderError
 from .prompts import architecture_payload
 from .schemas import (
     AnalyzeRequest,
+    AnswerRequest,
     ArchitectureApiDesignRequest,
     ArchitectureDataModelRequest,
     ArchitectureOverviewRequest,
+    EmbedRequest,
     StoriesRequest,
 )
 from .security import ServiceGuard
@@ -36,6 +39,11 @@ async def provider_error(_request: Request, error: ProviderError) -> JSONRespons
     if error.usage:
         content["usage"] = error.usage.model_dump(by_alias=True)
     return JSONResponse(status_code=error.status, content=content)
+
+
+@app.exception_handler(EmbeddingUnavailable)
+async def embedding_unavailable(_request: Request, _error: EmbeddingUnavailable) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"code": "EMBEDDING_UNAVAILABLE"})
 
 
 @app.exception_handler(RequestValidationError)
@@ -69,6 +77,17 @@ def stories(
     request: StoriesRequest, provider: AiProvider = Depends(get_provider)
 ) -> dict[str, Any]:
     result, usage = generate_stories(provider, request)
+    return {"result": result.model_dump(by_alias=True), "usage": usage.model_dump(by_alias=True)}
+
+
+@app.post("/v1/embed")
+def embed(request: EmbedRequest, embedder: Embedder = Depends(get_embedder)) -> dict[str, Any]:
+    return {"vectors": embed_texts(embedder, request.texts), "model": MODEL_NAME, "dimensions": DIMENSIONS}
+
+
+@app.post("/v1/answer")
+def answer(request: AnswerRequest, provider: AiProvider = Depends(get_provider)) -> dict[str, Any]:
+    result, usage = answer_question(provider, request)
     return {"result": result.model_dump(by_alias=True), "usage": usage.model_dump(by_alias=True)}
 
 
