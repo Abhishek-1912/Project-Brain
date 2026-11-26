@@ -1295,6 +1295,45 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /organizations/{orgId}/projects/{projectId}/knowledge/sources:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Knowledge]
+      operationId: listKnowledgeSources
+      summary: List the project's indexed knowledge sources, most recently changed first
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Knowledge sources
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeSourcePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{orgId}/projects/{projectId}/knowledge/rebuild:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [Knowledge]
+      operationId: rebuildKnowledge
+      summary: Queue every qualifying source for indexing and remove sources that no longer qualify (owner, admin, or manager)
+      responses:
+        '202':
+          description: Sources queued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeRebuildResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -2099,6 +2138,33 @@ components:
             items:
               type: array
               items: { $ref: '#/components/schemas/ReviewQueueItem' }
+    KnowledgeSource:
+      type: object
+      required: [id, sourceType, sourceId, title, status, errorCode, chunkCount, indexedAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        sourceType: { type: string, enum: [DOCUMENT, CLARIFICATION, STORY, ARCHITECTURE, NOTE] }
+        sourceId: { type: string, format: uuid }
+        title: { type: string }
+        status: { type: string, enum: [PENDING, INDEXING, READY, FAILED] }
+        errorCode: { type: [string, 'null'] }
+        chunkCount: { type: integer }
+        indexedAt: { type: [string, 'null'], format: date-time }
+        updatedAt: { type: string, format: date-time }
+    KnowledgeSourcePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/KnowledgeSource' }
+    KnowledgeRebuildResult:
+      type: object
+      required: [queued]
+      properties:
+        queued: { type: integer }
     RequirementDocumentPage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'
