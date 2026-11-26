@@ -6,6 +6,7 @@ export type KnowledgeSource = components['schemas']['KnowledgeSource']
 export type KnowledgeAnswer = components['schemas']['KnowledgeAnswer']
 export type KnowledgeCitation = components['schemas']['KnowledgeCitation']
 export type SourceType = KnowledgeSource['sourceType']
+export type KnowledgeNote = components['schemas']['KnowledgeNote']
 
 export const SOURCE_POLL_MS = 3000
 
@@ -79,4 +80,68 @@ export function sourcePath(projectPath: string, sourceType: SourceType, sourceId
     case 'NOTE':
       return `${projectPath}/knowledge#note-${sourceId}`
   }
+}
+
+export const notesKey = (orgId: string, projectId: string) => ['knowledge-notes', orgId, projectId] as const
+
+export function useKnowledgeNotes(orgId: string, projectId: string) {
+  return useQuery({
+    queryKey: notesKey(orgId, projectId),
+    queryFn: async () => {
+      const { data } = await api.GET('/organizations/{orgId}/projects/{projectId}/knowledge/notes', {
+        params: { path: { orgId, projectId }, query: { size: 100 } },
+      })
+      return data!
+    },
+  })
+}
+
+/** A note change also changes what is indexed, so both lists refresh. */
+function useNotesChanged(orgId: string, projectId: string) {
+  const queryClient = useQueryClient()
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: notesKey(orgId, projectId) }),
+      queryClient.invalidateQueries({ queryKey: sourcesKey(orgId, projectId) }),
+    ])
+}
+
+export function useCreateNote(orgId: string, projectId: string) {
+  const onSuccess = useNotesChanged(orgId, projectId)
+  return useMutation({
+    mutationFn: async (body: { title: string; body: string }) => {
+      const { data } = await api.POST('/organizations/{orgId}/projects/{projectId}/knowledge/notes', {
+        params: { path: { orgId, projectId } },
+        body,
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useUpdateNote(orgId: string, projectId: string) {
+  const onSuccess = useNotesChanged(orgId, projectId)
+  return useMutation({
+    mutationFn: async ({ noteId, ...body }: { noteId: string; title: string; body: string; version: number }) => {
+      const { data } = await api.PATCH('/organizations/{orgId}/knowledge/notes/{noteId}', {
+        params: { path: { orgId, noteId } },
+        body,
+      })
+      return data!
+    },
+    onSuccess,
+  })
+}
+
+export function useDeleteNote(orgId: string, projectId: string) {
+  const onSuccess = useNotesChanged(orgId, projectId)
+  return useMutation({
+    mutationFn: async (noteId: string) => {
+      await api.DELETE('/organizations/{orgId}/knowledge/notes/{noteId}', {
+        params: { path: { orgId, noteId } },
+      })
+    },
+    onSuccess,
+  })
 }

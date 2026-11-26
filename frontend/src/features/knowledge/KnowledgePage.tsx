@@ -6,6 +6,7 @@ import { useCurrentOrg } from '../organizations/useOrganizations'
 import { useProject } from '../projects/useProjects'
 import { TestModeBanner } from '../requirements/TestModeBanner'
 import { AskPanel } from './AskPanel'
+import { NoteList } from './NoteList'
 import { SourceList } from './SourceList'
 
 export function KnowledgePage() {
@@ -50,6 +51,7 @@ function ProjectKnowledge({ projectId }: { projectId: string }) {
         canRebuild={can('MANAGE_PROJECTS')}
         archived={archived}
       />
+      <NoteList orgId={org.id} projectId={projectId} canWrite={can('MANAGE_PROJECTS') && !archived} />
     </section>
   )
 }
