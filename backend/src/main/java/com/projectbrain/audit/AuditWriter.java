@@ -1,5 +1,6 @@
 package com.projectbrain.audit;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,6 +37,12 @@ class AuditWriter implements AuditLog {
 	@Transactional(propagation = Propagation.MANDATORY)
 	public void recordAs(UUID actorId, UUID orgId, String action, String entityType, UUID entityId,
 			Map<String, Object> metadata) {
+		Map<String, Object> recorded = currentUser.accessToken().<Map<String, Object>>map(token -> {
+			Map<String, Object> withChannel = new LinkedHashMap<>(metadata);
+			withChannel.put("via", "MCP");
+			withChannel.put("tokenId", token.tokenId().toString());
+			return withChannel;
+		}).orElse(metadata);
 		jdbc.sql("""
 				INSERT INTO brain.audit_events (id, organization_id, actor_id, action, entity_type, entity_id, metadata)
 				VALUES (:id, :orgId, :actorId, :action, :entityType, :entityId, CAST(:metadata AS jsonb))
@@ -46,7 +53,7 @@ class AuditWriter implements AuditLog {
 			.param("action", action)
 			.param("entityType", entityType)
 			.param("entityId", entityId)
-			.param("metadata", json.writeValueAsString(metadata))
+			.param("metadata", json.writeValueAsString(recorded))
 			.update();
 	}
 

@@ -98,6 +98,8 @@ class TaskService implements TaskCreator {
 					request.priority() == null ? TaskPriority.MEDIUM : request.priority(), request.assigneeId(),
 					request.dueDate(), request.responsibleJobRoleId(), userId);
 			tasks.saveAndFlush(task);
+			auditLog.record(orgId, "TASK_CREATED", "TASK", task.getId(),
+					Map.of("projectId", projectId.toString(), "status", task.getStatus().name()));
 			return TaskView.from(task);
 		});
 	}

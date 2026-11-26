@@ -1490,6 +1490,64 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /organizations/{orgId}/access-tokens:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+    get:
+      tags: [Access tokens]
+      operationId: listAccessTokens
+      summary: List your own personal access tokens in this organization, newest first
+      responses:
+        '200':
+          description: Your tokens, without secrets
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessTokenList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Access tokens]
+      operationId: createAccessToken
+      summary: Create a personal access token for MCP clients. The secret is returned only once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scope, expiresInDays]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                scope: { type: string, enum: [READ, READ_WRITE] }
+                expiresInDays: { type: integer, enum: [7, 30, 90] }
+      responses:
+        '201':
+          description: Created token, including its secret
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreatedAccessToken' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /organizations/{orgId}/access-tokens/{tokenId}/revoke:
+    parameters:
+      - $ref: '#/components/parameters/OrgId'
+      - name: tokenId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Access tokens]
+      operationId: revokeAccessToken
+      summary: Revoke one of your tokens. Revoking a revoked token does nothing.
+      responses:
+        '204':
+          description: Revoked
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /organizations/{orgId}/audit-events:
     parameters:
       - $ref: '#/components/parameters/OrgId'
@@ -2389,6 +2447,37 @@ components:
         title: { type: string, minLength: 1, maxLength: 200 }
         body: { type: string, minLength: 1, maxLength: 20000 }
         version: { type: integer, format: int64 }
+    AccessToken:
+      type: object
+      required: [id, name, scope, displayPrefix, expiresAt, createdAt, lastUsedAt, revokedAt, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        scope: { type: string, enum: [READ, READ_WRITE] }
+        displayPrefix: { type: string }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        status: { type: string, enum: [ACTIVE, EXPIRED, REVOKED] }
+    AccessTokenList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AccessToken' }
+    CreatedAccessToken:
+      type: object
+      required: [id, name, scope, displayPrefix, expiresAt, createdAt, token]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        scope: { type: string, enum: [READ, READ_WRITE] }
+        displayPrefix: { type: string }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        token: { type: string, description: 'The secret. Shown only in this response.' }
     KnowledgeRebuildResult:
       type: object
       required: [queued]
