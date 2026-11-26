@@ -12,6 +12,7 @@ import { ErrorState } from './components/ErrorState'
 import { LoadingState } from './components/LoadingState'
 import { ArchitecturePage } from './features/architecture/ArchitecturePage'
 import { ArchitectureVersionView } from './features/architecture/ArchitectureVersionView'
+import { KnowledgePage } from './features/knowledge/KnowledgePage'
 import { AuditLogPage } from './features/audit/AuditLogPage'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
@@ -113,6 +114,7 @@ export function AppRoutes() {
           <Route path="projects/:projectId/requirements/:documentId" element={<RequirementDetailPage />} />
           <Route path="projects/:projectId/architecture" element={<ArchitecturePage />} />
           <Route path="projects/:projectId/architecture/versions/:versionId" element={<ArchitectureVersionView />} />
+          <Route path="projects/:projectId/knowledge" element={<KnowledgePage />} />
           <Route path="reviews" element={<MyReviewsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="audit" element={<AuditLogPage />} />
