@@ -14,6 +14,7 @@ import { ArchitecturePage } from './features/architecture/ArchitecturePage'
 import { ArchitectureVersionView } from './features/architecture/ArchitectureVersionView'
 import { KnowledgePage } from './features/knowledge/KnowledgePage'
 import { AuditLogPage } from './features/audit/AuditLogPage'
+import { AccessTokensPage } from './features/tokens/AccessTokensPage'
 import { CreateOrganizationPage } from './features/organizations/CreateOrganizationPage'
 import { useOrganizations } from './features/organizations/useOrganizations'
 import { ProjectListPage } from './features/projects/ProjectListPage'
@@ -118,6 +119,7 @@ export function AppRoutes() {
           <Route path="reviews" element={<MyReviewsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="audit" element={<AuditLogPage />} />
+          <Route path="access-tokens" element={<AccessTokensPage />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />
       </Route>

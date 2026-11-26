@@ -27,9 +27,12 @@ function OrganizationNav() {
   const reviewsPath = `/orgs/${org.id}/reviews`
   const teamPath = `/orgs/${org.id}/team`
   const auditPath = `/orgs/${org.id}/audit`
+  const tokensPath = `/orgs/${org.id}/access-tokens`
   const section =
     pathname === auditPath
       ? 'audit'
+      : pathname === tokensPath
+        ? 'tokens'
       : pathname === teamPath
         ? 'team'
         : pathname === reviewsPath
@@ -71,6 +74,9 @@ function OrganizationNav() {
           Audit log
         </Link>
       )}
+      <Link to={tokensPath} {...itemProps('tokens')}>
+        Access tokens
+      </Link>
     </nav>
   )
 }
