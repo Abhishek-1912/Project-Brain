@@ -13,7 +13,10 @@ from .prompts import (
     ARCHITECTURE_DATA_MODEL_VERSION,
     ARCHITECTURE_OVERVIEW_SYSTEM,
     ARCHITECTURE_OVERVIEW_VERSION,
+    KNOWLEDGE_ANSWER_SYSTEM,
+    KNOWLEDGE_ANSWER_VERSION,
     analysis_payload,
+    answer_payload,
     architecture_payload,
     stories_payload,
 )
@@ -21,10 +24,12 @@ from .provider import AiProvider, ProviderError
 from .schemas import (
     AnalysisResult,
     AnalyzeRequest,
+    AnswerRequest,
     ArchitectureApiDesign,
     ArchitectureDataModel,
     ArchitectureOverview,
     StoriesRequest,
+    KnowledgeAnswer,
     StoriesResult,
     Usage,
 )
@@ -55,6 +60,16 @@ ARCHITECTURE_STEPS: dict[str, tuple[str, type[BaseModel], str]] = {
     "data-model": (ARCHITECTURE_DATA_MODEL_SYSTEM, ArchitectureDataModel, ARCHITECTURE_DATA_MODEL_VERSION),
     "api-design": (ARCHITECTURE_API_SYSTEM, ArchitectureApiDesign, ARCHITECTURE_API_VERSION),
 }
+
+
+def answer_question(provider: AiProvider, request: AnswerRequest) -> tuple[KnowledgeAnswer, Usage]:
+    return _generate(
+        provider,
+        KNOWLEDGE_ANSWER_SYSTEM,
+        answer_payload(request),
+        KnowledgeAnswer,
+        KNOWLEDGE_ANSWER_VERSION,
+    )
 
 
 def run_architecture_step(
