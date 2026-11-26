@@ -15,7 +15,7 @@ Phases 2 and 3 produce reviewed project knowledge: requirement documents, clarif
 - An architecture source is keyed by its project, so approving a new version replaces the old one in the index.
 - Embeddings are created locally by the Python AI service with `BAAI/bge-small-en-v1.5` (384 dimensions) through `fastembed`. No text leaves the machine for indexing. The model is cached in the folder named by `FASTEMBED_CACHE_PATH`.
 - Vectors live in pgvector in the `extensions` schema, and every reference names that schema. Enabling the extension is a one-time privileged bootstrap step, `backend/db/bootstrap/enable_vector.sql`.
-- Indexing runs in a bounded background worker. No database transaction is held while embedding. A source's chunks are replaced as a complete set in one transaction, and each attempt saves only if its timestamp token still matches, so a later change or deletion always wins.
+- Indexing runs on two background threads with an unbounded queue, so no change or removal is dropped. No database transaction is held while embedding. Queuing a changed source removes its old chunks at once. New chunks are written in one transaction, and each attempt saves only if its timestamp token still matches, so a later change or deletion always wins. Only READY sources are searched.
 - Search merges the top 20 vector matches and the top 20 keyword matches with reciprocal rank fusion (k = 60), and returns only relevant results: a keyword match, or cosine similarity of at least 0.6. Every query filters by organization and project, on top of row-level security.
 - Ask answers only from at most 8 retrieved passages. Spring keeps only citations of passages it sent. An answer without a valid citation is shown as "Not found in this project's knowledge." At most 2 answers run at once.
 - Any project member can ask and search. Only Owners and Admins, who hold `MANAGE_PROJECTS`, can write notes or rebuild the index. The design's word "managers" means this permission. There is no Manager access role.
@@ -25,10 +25,11 @@ Phases 2 and 3 produce reviewed project knowledge: requirement documents, clarif
 ## Consequences
 
 - Agents and MCP tools in later phases can use the search route without changes.
-- A failed re-index keeps the previous complete version searchable until a retry succeeds. Content that stops being reviewed knowledge is removed straight away.
+- A source is not searchable while it re-indexes, or after a failed re-index until a retry or rebuild succeeds. Content that stops being reviewed knowledge, including an approved story edited back to a draft, is removed once the change commits.
 - The 0.6 relevance threshold has not yet been checked against the ten dummy questions or real content, and may need tuning.
 - The embedding model is English-first, and the AI service needs about 64 MB of model files and the ONNX runtime.
 - Running more than one backend needs a shared job queue for indexing, as for AI runs.
+- The HNSW vector index filters by organization and project after its approximate scan. At multi-tenant volume a project could get too few meaning matches. Before real tenants, check with EXPLAIN and either enable pgvector iterative scans or drop the HNSW index for exact per-project scans.
 
 ## Before real client knowledge
 

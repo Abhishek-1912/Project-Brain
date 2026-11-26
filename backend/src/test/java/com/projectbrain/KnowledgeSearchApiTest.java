@@ -78,6 +78,20 @@ class KnowledgeSearchApiTest extends TeamApiTestBase {
 	}
 
 	@Test
+	void sourcesThatAreNotReadyAreNotSearched() throws Exception {
+		Fixture f = fixture();
+		UUID ready = seedChunk(f, "Booking rules", "Users can book a table.", 1);
+		UUID waiting = seedChunk(f, "Old booking rules", "Users can book a table by phone.", 1);
+		execute("UPDATE brain.knowledge_sources SET status = 'PENDING' WHERE id = "
+				+ "(SELECT source_row_id FROM brain.knowledge_chunks WHERE id = ?)", waiting);
+		ai.queryBuckets.put("book a table", 1);
+
+		mvc.perform(search(f, "book a table", f.owner))
+			.andExpect(jsonPath("$.items", hasSize(1)))
+			.andExpect(jsonPath("$.items[0].chunkId").value(ready.toString()));
+	}
+
+	@Test
 	void chunkMatchingBothWaysRanksFirst() throws Exception {
 		Fixture f = fixture();
 		seedChunk(f, "Seating", "Diners reserve seats ahead of time.", 2);

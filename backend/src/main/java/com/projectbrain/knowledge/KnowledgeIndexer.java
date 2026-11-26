@@ -23,8 +23,9 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 /**
- * Indexes one source at a time in the background. Holds no database transaction while embedding, and replaces a
- * source's chunks in one transaction, so search always sees a complete set.
+ * Indexes sources in the background. Holds no database transaction while embedding. Queuing a changed source removes
+ * its old chunks at once, and the new chunks are written in one transaction, so search never sees stale or partial
+ * text.
  */
 @Component
 class KnowledgeIndexer {
@@ -51,7 +52,8 @@ class KnowledgeIndexer {
 		this.executor = new ThreadPoolTaskExecutor();
 		executor.setCorePoolSize(2);
 		executor.setMaxPoolSize(2);
-		executor.setQueueCapacity(100);
+		// Unbounded, so no change or removal is ever dropped. Each queued item is small, and only two run at once.
+		executor.setQueueCapacity(Integer.MAX_VALUE);
 		executor.setThreadNamePrefix("knowledge-");
 		executor.initialize();
 	}
@@ -84,8 +86,8 @@ class KnowledgeIndexer {
 			});
 		}
 		catch (TaskRejectedException ex) {
-			// The source stays PENDING, so restart recovery or a rebuild picks it up.
-			log.warn("Knowledge indexing queue is full");
+			// Only happens while the server shuts down. Restart recovery picks up PENDING sources.
+			log.warn("Knowledge indexing is shutting down");
 		}
 	}
 
@@ -125,7 +127,7 @@ class KnowledgeIndexer {
 			if (unchanged) {
 				return Optional.<UUID>empty();
 			}
-			return Optional.of(jdbc.sql("""
+			UUID rowId = jdbc.sql("""
 					INSERT INTO brain.knowledge_sources
 					    (id, organization_id, project_id, source_type, source_id, title, status, queued_by)
 					VALUES (:id, :orgId, :projectId, :type, :sourceId, :title, 'PENDING', :actor)
@@ -142,7 +144,13 @@ class KnowledgeIndexer {
 				.param("title", content.get().title())
 				.param("actor", actorId)
 				.query(UUID.class)
-				.single());
+				.single();
+			// The previous text stops being searchable now, not when the new text is ready.
+			jdbc.sql("DELETE FROM brain.knowledge_chunks WHERE organization_id = :orgId AND source_row_id = :id")
+				.param("orgId", orgId)
+				.param("id", rowId)
+				.update();
+			return Optional.of(rowId);
 		});
 	}
 

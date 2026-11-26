@@ -82,7 +82,7 @@ A new Spring module, `knowledge`, owns the index, notes, search, and answers.
 |---|---|---|
 | `DOCUMENT` | A requirement document is uploaded | Never in Phase 4, because documents cannot be deleted |
 | `CLARIFICATION` | A question is answered | Its answer changes (re-indexed) or it is dismissed |
-| `STORY` | A story is approved | Never, because approved stories are final |
+| `STORY` | A story is approved | It is edited, which makes it a draft again. A story that became a task can't be edited |
 | `ARCHITECTURE` | A version is approved | A newer version is approved. Only the current approved version is indexed |
 | `NOTE` | A note is created or edited | The note is deleted |
 
@@ -110,7 +110,7 @@ Every table has RLS with `ENABLE` and `FORCE`, scoped by organization, with gran
 
 - A change marks the source `PENDING`. A bounded worker, following the Phase 2 worker pattern, indexes it.
 - Text is split along headings and paragraphs into chunks of about 1,000 characters, with about 150 characters of overlap.
-- No database transaction is held while embedding. The chunks replace the old ones in one transaction, so a source is searched either as its old complete version or its new complete version. Only `READY` sources are searched.
+- No database transaction is held while embedding. Queuing a changed source removes its old chunks at once, and the new chunks are written in one transaction. Only `READY` sources are searched, so a source is never searched while partly written or after it changed. (Corrected after the whole-branch review.)
 - If the content hash is unchanged, nothing is re-embedded.
 - If the source no longer qualifies by the time it is saved (rejected, superseded, or deleted), it is removed instead.
 - On startup, sources left `INDEXING` return to `PENDING`, because indexing is safe to repeat. This uses the same narrow cross-tenant database function pattern as Phase 2 and assumes one backend instance.

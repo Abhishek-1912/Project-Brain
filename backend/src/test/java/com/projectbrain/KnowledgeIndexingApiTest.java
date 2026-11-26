@@ -131,7 +131,51 @@ class KnowledgeIndexingApiTest extends TeamApiTestBase {
 	}
 
 	@Test
-	void failedReindexKeepsThePreviousChunks() throws Exception {
+	void editingApprovedStoryRemovesItFromTheIndex() throws Exception {
+		Fixture f = fixture();
+		UUID story = seedStory(f, "Book a table", "DRAFT");
+		mvc.perform(post(ORGS + "/" + f.org + "/stories/" + story + "/approve").with(as(f.owner))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"version\":0}")).andExpect(status().isOk());
+		await(() -> sourceStatus(f, "STORY", story).equals("READY"));
+
+		mvc.perform(patch(ORGS + "/" + f.org + "/stories/" + story).with(as(f.owner))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"title\":\"Book a table\",\"asA\":\"diner\",\"iWant\":\"to book later\",\"soThat\":\"I get a seat\","
+				+ "\"acceptanceCriteria\":[\"Booking is saved\"],\"priority\":\"HIGH\",\"jobRoleId\":\"" + f.role
+				+ "\",\"version\":1}")).andExpect(status().isOk());
+
+		await(() -> sourceStatus(f, "STORY", story).equals("NONE"));
+		assertThat(chunkText(f, "STORY", story)).isEmpty();
+	}
+
+	@Test
+	void newerArchitectureThatFailsToIndexLeavesNoOlderText() throws Exception {
+		Fixture f = fixture();
+		approveVersion(f, seedVersion(f, 1, "Version one summary"));
+		await(() -> sourceStatus(f, "ARCHITECTURE", f.project).equals("READY"));
+		ai.failure = "EMBEDDING_UNAVAILABLE";
+
+		approveVersion(f, seedVersion(f, 2, "Version two summary"));
+
+		await(() -> sourceStatus(f, "ARCHITECTURE", f.project).equals("FAILED"));
+		assertThat(chunkText(f, "ARCHITECTURE", f.project)).doesNotContain("Version one summary");
+	}
+
+	@Test
+	void rebuildLargerThanTheWorkQueueIndexesEverySource() throws Exception {
+		Fixture f = fixture();
+		for (int i = 0; i < 130; i++) {
+			seedStory(f, "Story " + i, "APPROVED");
+		}
+
+		mvc.perform(post(rebuildUrl(f)).with(as(f.owner))).andExpect(jsonPath("$.queued").value(131));
+
+		await(() -> countReady(f) == 131, 1500);
+	}
+
+	@Test
+	void failedReindexLeavesNoOldText() throws Exception {
 		Fixture f = fixture();
 		UUID question = seedQuestion(f);
 		clarify(f, question, "{\"status\":\"ANSWERED\",\"answer\":\"Old answer.\",\"version\":0}");
@@ -141,7 +185,7 @@ class KnowledgeIndexingApiTest extends TeamApiTestBase {
 		clarify(f, question, "{\"status\":\"ANSWERED\",\"answer\":\"New answer.\",\"version\":1}");
 
 		await(() -> sourceStatus(f, "CLARIFICATION", question).equals("FAILED"));
-		assertThat(chunkText(f, "CLARIFICATION", question)).contains("Old answer.");
+		assertThat(chunkText(f, "CLARIFICATION", question)).doesNotContain("Old answer.");
 	}
 
 	@Test
@@ -250,8 +294,22 @@ class KnowledgeIndexingApiTest extends TeamApiTestBase {
 		mvc.perform(request).andExpect(status().isOk());
 	}
 
+	private static long countReady(Fixture f) {
+		try {
+			return countRows("SELECT count(*) FROM brain.knowledge_sources WHERE project_id = ? AND status = 'READY'",
+					f.project);
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException(ex);
+		}
+	}
+
 	private static void await(BooleanSupplier condition) throws Exception {
-		for (int i = 0; i < 250; i++) {
+		await(condition, 250);
+	}
+
+	private static void await(BooleanSupplier condition, int attempts) throws Exception {
+		for (int i = 0; i < attempts; i++) {
 			if (condition.getAsBoolean()) {
 				return;
 			}

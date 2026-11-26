@@ -110,6 +110,23 @@ class RequirementKnowledgeEventsTest extends TeamApiTestBase {
 	}
 
 	@Test
+	void editingApprovedStoryPublishesStoryChange() throws Exception {
+		Fixture f = fixture();
+		UUID story = seedStory(f, "Book a table", "DRAFT");
+		mvc.perform(storyDecision(f, story, "approve", "{\"version\":0}")).andExpect(status().isOk());
+		events.received.clear();
+
+		mvc.perform(patch(ORGS + "/" + f.org + "/stories/" + story).with(as(f.owner))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"title\":\"Book a table\",\"asA\":\"diner\",\"iWant\":\"to book later\",\"soThat\":\"I get a seat\","
+				+ "\"acceptanceCriteria\":[\"Booking is saved\"],\"priority\":\"HIGH\",\"jobRoleId\":\"" + f.role
+				+ "\",\"version\":1}")).andExpect(status().isOk());
+
+		assertThat(events.received).extracting(KnowledgeChanged::type, KnowledgeChanged::sourceId)
+			.containsExactly(org.assertj.core.groups.Tuple.tuple(KnowledgeSourceType.STORY, story));
+	}
+
+	@Test
 	void approvingArchitecturePublishesProjectArchitectureChange() throws Exception {
 		Fixture f = fixture();
 		UUID rejected = seedVersion(f, 1, "DRAFT");

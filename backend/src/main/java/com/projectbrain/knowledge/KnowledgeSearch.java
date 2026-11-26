@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 /**
  * Merges the closest chunks by meaning with the best keyword matches, using reciprocal rank fusion, and returns only
  * relevant ones: a keyword match, or a meaning match at least MIN_SIMILARITY close. Every query filters
- * by organization and project, on top of row-level security. Chunks are always a complete set for their source, so
- * every source's chunks are searched whatever its indexing status.
+ * by organization and project, on top of row-level security. Only READY sources are searched, and a source's old
+ * chunks are removed as soon as it is queued again, so superseded text is never returned.
  */
 @Component
 class KnowledgeSearch {
@@ -58,7 +58,7 @@ class KnowledgeSearch {
 				JOIN brain.knowledge_sources s ON s.organization_id = c.organization_id AND s.id = c.source_row_id
 				LEFT JOIN vector_hits v ON v.id = c.id
 				LEFT JOIN keyword_hits kw ON kw.id = c.id
-				WHERE c.organization_id = :orgId AND c.project_id = :projectId
+				WHERE c.organization_id = :orgId AND c.project_id = :projectId AND s.status = 'READY'
 				  AND (kw.id IS NOT NULL OR v.similarity >= :minSimilarity)
 				ORDER BY score DESC, c.id
 				LIMIT :limit
