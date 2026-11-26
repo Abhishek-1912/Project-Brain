@@ -47,6 +47,23 @@ class McpEndpointTest extends TeamApiTestBase {
 	}
 
 	@Test
+	void removedMembersTokenStaysDeadEvenAfterTheyRejoin() throws Exception {
+		UUID owner = seedProfile();
+		UUID org = seedOrg(owner);
+		UUID admin = seedMember(org, "ADMIN");
+		String token = McpTestClient.seedToken(admin, org, "READ_WRITE");
+		assertThat(McpTestClient.rawStatus(port, "Bearer " + token, "/mcp")).isEqualTo(200);
+
+		execute("DELETE FROM brain.organization_members WHERE organization_id = ? AND user_id = ?", org, admin);
+		assertThat(McpTestClient.rawStatus(port, "Bearer " + token, "/mcp")).isEqualTo(401);
+
+		addMember(org, admin, "ADMIN");
+		assertThat(McpTestClient.rawStatus(port, "Bearer " + token, "/mcp")).isEqualTo(401);
+		String fresh = McpTestClient.seedToken(admin, org, "READ_WRITE");
+		assertThat(McpTestClient.rawStatus(port, "Bearer " + fresh, "/mcp")).isEqualTo(200);
+	}
+
+	@Test
 	void accessTokenIsRefusedOnTheAppApi() throws Exception {
 		UUID owner = seedProfile();
 		UUID org = seedOrg(owner);

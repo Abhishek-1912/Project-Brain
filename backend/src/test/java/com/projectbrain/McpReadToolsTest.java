@@ -131,10 +131,9 @@ class McpReadToolsTest extends TeamApiTestBase {
 			assertThat(mcp.call("list_tasks", args(f)).isError()).isFalse();
 			execute("DELETE FROM brain.organization_members WHERE organization_id = ? AND user_id = ?", f.org, admin);
 
-			McpSchema.CallToolResult result = mcp.call("list_tasks", args(f));
-
-			assertThat(result.isError()).isTrue();
-			assertThat(text(result)).doesNotContain("Set up the database");
+			// The token itself is now refused, before any tool runs.
+			org.assertj.core.api.Assertions.assertThatThrownBy(() -> mcp.call("list_tasks", args(f)))
+				.hasMessageContaining("Authorization");
 		}
 	}
 

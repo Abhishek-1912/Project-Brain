@@ -13,6 +13,7 @@ import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.organization.api.OrgTx;
 import com.projectbrain.organization.api.Permission;
 import com.projectbrain.shared.web.ConflictException;
+import com.projectbrain.shared.web.ForbiddenException;
 import com.projectbrain.shared.web.NotFoundException;
 import com.projectbrain.shared.web.UnprocessableException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -142,7 +143,31 @@ class AccessTokenService implements AccessTokenResolver {
 			.param("hash", TokenSecrets.hash(presented))
 			.query((row, rowNumber) -> new ResolvedToken(row.getObject("token_id", UUID.class),
 					row.getObject("user_id", UUID.class), row.getObject("org_id", UUID.class), row.getString("scope")))
-			.optional();
+			.optional()
+			.filter(this::fromCurrentMembership);
+	}
+
+	/**
+	 * A token dies with the membership it was created under. Someone removed and later re-added gets a new membership,
+	 * so their older tokens stay refused.
+	 */
+	private boolean fromCurrentMembership(ResolvedToken token) {
+		try {
+			return orgTx.inOrgAs(token.userId(), token.orgId(), Permission.VIEW, () -> jdbc.sql("""
+					SELECT EXISTS (
+					    SELECT 1 FROM brain.access_tokens t
+					    JOIN brain.organization_members m ON m.organization_id = t.organization_id AND m.user_id = t.user_id
+					    WHERE t.organization_id = :orgId AND t.id = :id AND m.created_at <= t.created_at
+					)
+					""")
+				.param("orgId", token.orgId())
+				.param("id", token.tokenId())
+				.query(Boolean.class)
+				.single());
+		}
+		catch (NotFoundException | ForbiddenException ex) {
+			return false;
+		}
 	}
 
 	private TokenView view(java.sql.ResultSet row, int rowNumber) throws java.sql.SQLException {

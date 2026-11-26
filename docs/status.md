@@ -15,7 +15,7 @@ Phase 1.5 acceptance: On 2026-11-23, 236 backend tests, 134 frontend tests, the 
 Phase 2 acceptance: On 2026-11-23, the developer confirmed the browser flow with the dummy PRD, Gemini free tier, Supabase and the running services. A fresh review then found no Critical issues, and its six Important findings were fixed. After those fixes, 63 AI service tests, 341 backend tests, 156 frontend tests, the production build and lint passed. The fixes were not repeated in the live browser flow.
 Phase 3 acceptance: On 2026-11-24, the developer confirmed the architecture browser flow (generate, edit, reject, regenerate, approve, Markdown download, audit) with Supabase, using Groq's `openai/gpt-oss-120b`. A fresh review then found no Critical issues, and its Important findings were fixed. After those fixes, 92 AI service tests, 399 backend tests, 171 frontend tests, the production build and lint passed. The fixes were not repeated in the live browser flow.
 Phase 4 acceptance: On 2026-11-26, 107 AI service tests, 458 backend tests, 191 frontend tests, the production build and lint passed. The developer enabled pgvector on Supabase, `V6` was applied, and the real embedding route returned 384-dimension vectors. The browser check, Part 3 of `docs/testing/browser-acceptance.md`, has not been done yet. A fresh review then found two Critical and three Important issues. Both Critical issues and two Important ones were fixed, and the HNSW recall issue is deferred as a known gap. After the fixes, 107 AI service tests, 463 backend tests and 191 frontend tests passed.
-Phase 5 acceptance: On 2026-11-26, 107 AI service tests, 498 backend tests, 197 frontend tests, the production build and lint passed. `V7` was applied to Supabase, and `/mcp` refuses requests without a personal access token. The browser and Claude Code checks, Part 4 of `docs/testing/browser-acceptance.md`, have not been done yet.
+Phase 5 acceptance: On 2026-11-26, 107 AI service tests, 498 backend tests, 197 frontend tests, the production build and lint passed. `V7` was applied to Supabase, and `/mcp` refuses requests without a personal access token. The browser and Claude Code checks, Part 4 of `docs/testing/browser-acceptance.md`, have not been done yet. A fresh review then found one Critical and one Important issue, both fixed with tests: tasks created through MCP are now audited, and a removed member's tokens stay dead after they rejoin. After the fixes, 107 AI service tests, 499 backend tests and 197 frontend tests passed.
 AI provider: `AI_PROVIDER` chooses `groq` or `gemini` (default). Local development currently uses Groq's free tier.
 Database: Migrations through `V7` and pgvector 0.8.2 are applied to Supabase. `V7` is on branch `phase-5-universal-mcp`, not yet in `main`.
 MCP: The backend serves MCP at `/mcp` for personal access tokens created on the Access tokens page.
@@ -26,7 +26,7 @@ Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0
 
 - Refreshing an expired token has automated tests only.
 - The project screen has no restore action, although the API can set an archived project back to `ACTIVE`.
-- Task create and update are not audited as general edits. Review actions and organization, project, team, invite and task deletion changes are audited.
+- Task updates are not audited as general edits. Task creation is audited from Phase 5. Review actions and organization, project, team, invite and task deletion changes are audited.
 - Production needs custom SMTP for sign-up and password email, because Supabase's built-in email service is rate limited. For manual tests, create users in the Dashboard with Auto Confirm User.
 - Supabase **Confirm email** must stay enabled wherever invites are used.
 - The production JavaScript bundle is above Vite's 500 kB warning limit.
@@ -45,6 +45,8 @@ Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0
 - MCP has personal access tokens only, so web connectors that require OAuth, such as claude.ai's, cannot connect yet.
 - The MCP rate limit (60 requests a minute per token) is kept in memory and assumes one backend instance.
 - MCP `list_tasks` returns at most the newest 100 tasks.
+- MCP resources are templates, so clients that only list resources show none. Use the tools or the resource addresses instead.
+- Eight minor Phase 5 review findings are deferred, including no Origin check or smaller request size limit on `/mcp`, the created token staying in browser memory until the page is left, and the rate limit answering with HTTP 429 instead of a tool error.
 - Phase 4 has not been checked in a browser. All pending browser checks are in `docs/testing/browser-acceptance.md`.
 - Knowledge relevance uses a cosine similarity of at least 0.6, not yet checked against the ten dummy questions. An unrelated sentence pair scored 0.58 with the real model, so real content may need a higher threshold.
 - Knowledge indexing recovery assumes one backend instance, like AI runs.

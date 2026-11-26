@@ -45,6 +45,11 @@ class McpWriteToolsTest extends TeamApiTestBase {
 					SELECT count(*) FROM brain.tasks
 					WHERE id = ? AND project_id = ? AND status = 'BACKLOG' AND created_by = ? AND title = 'Add booking reminders'
 					""", UUID.fromString(id), f.project, f.owner)).isEqualTo(1);
+			assertThat(countRows("""
+					SELECT count(*) FROM brain.audit_events
+					WHERE entity_id = ? AND action = 'TASK_CREATED' AND actor_id = ?
+					  AND metadata->>'via' = 'MCP' AND metadata->>'tokenId' IS NOT NULL
+					""", UUID.fromString(id), f.owner)).isEqualTo(1);
 		}
 	}
 

@@ -66,7 +66,7 @@ public final class McpTestClient implements AutoCloseable {
 		RANDOM.nextBytes(bytes);
 		String token = "pb_" + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 		execute("INSERT INTO brain.access_tokens (id, user_id, organization_id, name, token_hash, display_prefix, scope, created_at, expires_at, revoked_at) "
-				+ "VALUES (?, ?, ?, 'Test', ?, ?, ?, now() - interval '2 days', " + expires + ", "
+				+ "VALUES (?, ?, ?, 'Test', ?, ?, ?, LEAST(clock_timestamp(), " + expires + " - interval '1 minute'), " + expires + ", "
 				+ (revoked == null ? "NULL" : revoked) + ")", UUID.randomUUID(), user, org, sha256(token),
 				token.substring(0, 8), scope);
 		return token;
