@@ -1,10 +1,10 @@
 # Browser Acceptance Test
 
-Use this checklist to confirm Phase 2 (requirements and stories), Phase 3 (architecture), and Phase 4 (knowledge) work end to end in a real browser. It uses dummy data only.
+Use this checklist to confirm Phase 2 (requirements and stories), Phase 3 (architecture), Phase 4 (knowledge), and Phase 5 (MCP access) work end to end in a real browser and in Claude Code. It uses dummy data only.
 
 ## Before you start
 
-- Supabase has pgvector enabled (`backend/db/bootstrap/enable_vector.sql`) and migrations through `V6` applied.
+- Supabase has pgvector enabled (`backend/db/bootstrap/enable_vector.sql`) and migrations through `V7` applied.
 - The root `.env` has the AI settings. Never commit it or paste its values anywhere.
   - Groq: `AI_PROVIDER=groq` and `GROQ_API_KEY`.
   - Gemini: `AI_PROVIDER=gemini` (or unset) and `GEMINI_API_KEY`.
@@ -15,6 +15,7 @@ Use this checklist to confirm Phase 2 (requirements and stories), Phase 3 (archi
   - Frontend on [http://localhost:5173](http://localhost:5173).
 - You are signed in as an Owner of a test organization with an active project.
 - You have the fake document `docs/test-data/dummy-prd.md`.
+- For Part 4, Claude Code is installed on this computer.
 
 If a step shows a rate-limit message, wait a minute and click **Try again**. Groq's free tier allows about 8,000 tokens per minute.
 
@@ -62,11 +63,27 @@ Parts 1 and 2 should leave this project with an uploaded document, answered ques
 | 24 | Delete the note and confirm. | The note is gone, and asking about its fact says not found. |
 | 25 | Sign in as a Member or Viewer of the same organization and open **Knowledge**. | You can ask questions and read notes, but **Rebuild index**, **New note**, **Edit**, and **Delete** are hidden. |
 
-## Part 4: Records
+## Part 4: Access tokens and MCP (Phase 5)
+
+Parts 1 to 3 should leave this project with knowledge, an approved architecture, and an active job role in the organization.
 
 | Step | Do this | Expect |
 |---|---|---|
-| 26 | Open the **Audit log**. | Entries for the upload, AI runs, story decisions, task conversion, architecture edit, rejection, and approval, knowledge rebuild, questions asked, and note changes. No document, story, note, question, or answer text appears in them. |
+| 26 | Click **Access tokens** in the organization menu. | The page explains what tokens are for, with **Create token**. |
+| 27 | Create a token named "Claude Code", choose **Read and write** and 7 days, then click **Create token**. | The secret is shown once, with a `claude mcp add` command that contains it. After **Done**, the secret is gone and the list shows the token as **Active**. |
+| 28 | Copy the command and run it in a terminal, then run `claude mcp list`. | `project-brain` is listed as connected. |
+| 29 | In Claude Code, ask: "Use project-brain to list my projects." | It names this organization's projects and no others. |
+| 30 | Ask it a question from `docs/test-data/knowledge-questions.md` using project-brain. | A short answer with cited sources, the same as the Knowledge tab gives. |
+| 31 | Ask it to show this project's current architecture. | The approved architecture as Markdown. |
+| 32 | Ask it to create a Backlog task for this project, using one of the job roles from `list_job_roles`. | The task appears in the project's Backlog in the app, created by you. |
+| 33 | Create a **Read only** token, run `claude mcp remove project-brain`, add the new token with its command, and ask it to create another task. | Claude Code reports that the token is read-only, and no task is created. |
+| 34 | In the app, revoke the token Claude Code is using, then ask Claude Code to list projects again. | The call fails because the token is no longer valid. The list shows **Revoked**. |
+
+## Part 5: Records
+
+| Step | Do this | Expect |
+|---|---|---|
+| 35 | Open the **Audit log**. | Entries for the upload, AI runs, story decisions, task conversion, architecture edit, rejection, and approval, knowledge rebuild, questions asked, note changes, token creation and revocation, and the MCP task marked as coming from MCP. No document, story, note, question, answer, or token text appears in them. |
 
 ## If something goes wrong
 
@@ -74,6 +91,7 @@ Parts 1 and 2 should leave this project with an uploaded document, answered ques
 - **Approve button missing:** another person may hold the required job role, or self-approval may be off in the organization settings.
 - **Rate limit or timeout:** wait a minute, then click **Try again**. Finished architecture steps are reused.
 - **AI service unavailable:** check that the AI service is running on port 8090 and that `AI_SERVICE_TOKEN` matches for both services.
+- **Claude Code can't connect:** check that the backend is running on port 8080, the token is active and not expired, and the command uses the `/mcp` address.
 - **A knowledge source shows Failed:** read its message, check the AI service, then click **Rebuild index**.
 - **Unrelated passages cited, or not found for a question the documents answer:** note the question. The relevance threshold may need tuning.
 
