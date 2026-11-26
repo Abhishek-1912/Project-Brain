@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.projectbrain.audit.api.AuditLog;
+import com.projectbrain.requirement.api.KnowledgeChanged;
+import com.projectbrain.requirement.api.KnowledgeSourceType;
 import com.projectbrain.identity.api.CurrentUserProvider;
 import com.projectbrain.organization.api.ApprovalSettings;
 import com.projectbrain.organization.api.OrgTx;
@@ -23,6 +25,7 @@ import com.projectbrain.task.api.TaskCreator;
 import com.projectbrain.team.api.Approvers;
 import com.projectbrain.team.api.JobRoleLookup;
 import com.projectbrain.team.api.ProjectTeamLookup;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -56,11 +59,13 @@ class StoryReviewService {
 
 	private final AuditLog auditLog;
 
+	private final ApplicationEventPublisher events;
+
 	private final JsonMapper json;
 
 	StoryReviewService(OrgTx orgTx, JdbcClient jdbc, StoryService stories, RequirementAccess access,
 			ProjectTeamLookup team, ApprovalSettings approvalSettings, JobRoleLookup jobRoles, TaskCreator taskCreator,
-			CurrentUserProvider currentUser, AuditLog auditLog, JsonMapper json) {
+			CurrentUserProvider currentUser, AuditLog auditLog, JsonMapper json, ApplicationEventPublisher events) {
 		this.orgTx = orgTx;
 		this.jdbc = jdbc;
 		this.stories = stories;
@@ -71,6 +76,7 @@ class StoryReviewService {
 		this.taskCreator = taskCreator;
 		this.currentUser = currentUser;
 		this.auditLog = auditLog;
+		this.events = events;
 		this.json = json;
 	}
 
@@ -88,6 +94,8 @@ class StoryReviewService {
 			recordDecision(orgId, storyId, target, "APPROVED", actor, approvers, selfApproved, null);
 			auditLog.record(orgId, "STORY_APPROVED", "STORY", storyId, Map.of("storyVersion", target.version(), "basis",
 					approvers.basis().name(), "selfApproved", selfApproved));
+			events.publishEvent(
+					new KnowledgeChanged(orgId, target.projectId(), KnowledgeSourceType.STORY, storyId, actor));
 			return stories.load(orgId, storyId);
 		});
 	}
