@@ -1,14 +1,14 @@
 # Project Status
 
-Branch: phase-5-universal-mcp
+Branch: main
 Phase 1: Complete
 Phase 1.5: Complete and merged into `main` through PR #2
 Phase 2: Working model complete for dummy data only, and merged into `main` through PR #4
 Phase 3: Working model complete for dummy data only, and merged into `main` through PR #6
 Phase 4: Working model complete for dummy data only, and merged into `main` through PR #8. The browser check has not been done yet.
-Phase 5: Working model built for dummy data only, on branch `phase-5-universal-mcp`. The browser and Claude Code checks have not been done yet, and the whole-branch review is next.
+Phase 5: Working model complete for dummy data only, and merged into `main` through PR #10. The browser and Claude Code checks have not been done yet.
 Finished: Phase 1 Tasks 0 through 14, Phase 1.5 Tasks 1 through 12, Phase 2 Tasks 1 through 10, Phase 3 Tasks 1 through 8, Phase 4 Tasks 1 through 9, Phase 5 Tasks 1 through 7
-Current task: Phase 5 whole-branch review
+Current task: Plan Phase 6
 Blockers: none
 Phase 1 acceptance: On 2026-11-23, 135 backend tests, 83 frontend tests and the production build passed. The developer confirmed the browser flow against Supabase and the running backend.
 Phase 1.5 acceptance: On 2026-11-23, 236 backend tests, 134 frontend tests, the production build and lint passed. A fresh review found no Critical issues, and its Important findings were fixed. The developer confirmed the two-user browser flow against Supabase and the running backend.
@@ -17,7 +17,7 @@ Phase 3 acceptance: On 2026-11-24, the developer confirmed the architecture brow
 Phase 4 acceptance: On 2026-11-26, 107 AI service tests, 458 backend tests, 191 frontend tests, the production build and lint passed. The developer enabled pgvector on Supabase, `V6` was applied, and the real embedding route returned 384-dimension vectors. The browser check, Part 3 of `docs/testing/browser-acceptance.md`, has not been done yet. A fresh review then found two Critical and three Important issues. Both Critical issues and two Important ones were fixed, and the HNSW recall issue is deferred as a known gap. After the fixes, 107 AI service tests, 463 backend tests and 191 frontend tests passed.
 Phase 5 acceptance: On 2026-11-26, 107 AI service tests, 498 backend tests, 197 frontend tests, the production build and lint passed. `V7` was applied to Supabase, and `/mcp` refuses requests without a personal access token. The browser and Claude Code checks, Part 4 of `docs/testing/browser-acceptance.md`, have not been done yet. A fresh review then found one Critical and one Important issue, both fixed with tests: tasks created through MCP are now audited, and a removed member's tokens stay dead after they rejoin. After the fixes, 107 AI service tests, 499 backend tests and 197 frontend tests passed.
 AI provider: `AI_PROVIDER` chooses `groq` or `gemini` (default). Local development currently uses Groq's free tier.
-Database: Migrations through `V7` and pgvector 0.8.2 are applied to Supabase. `V7` is on branch `phase-5-universal-mcp`, not yet in `main`.
+Database: Migrations through `V7` and pgvector 0.8.2 are applied to Supabase, and `V7` is included in `main`.
 MCP: The backend serves MCP at `/mcp` for personal access tokens created on the Access tokens page.
 Embeddings: The AI service uses local `BAAI/bge-small-en-v1.5` through `fastembed`. Start it with `FASTEMBED_CACHE_PATH=$HOME/.cache/fastembed`, or it downloads the model again into a temporary folder.
 Decisions: `docs/decisions/0001-auth-and-tenant-isolation.md`, `docs/decisions/0002-team-and-approval-model.md`, `docs/decisions/0003-ai-service-boundary.md`, `docs/decisions/0004-knowledge-engine.md` and `docs/decisions/0005-universal-mcp.md`.
